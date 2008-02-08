@@ -1,6 +1,11 @@
 CC = gcc
 CFLAGS = -g -O2 -Wall
-PROGS = 
-all: $(PROGS) guppi_status.o
+PROGS = check_guppi_status
+OBJS = guppi_status.o guppi_error.o
+LIBS = -lcfitsio -lm -lpthread
+all: $(PROGS) 
 clean:
-	rm -f $(PROG) *~ *.o
+	rm -f $(PROGS) *~ *.o
+.SECONDEXPANSION:
+$(PROGS): $$@.c $(OBJS)
+	$(CC) $(CFLAGS) $< -o $@ $(OBJS) $(LIBS)
