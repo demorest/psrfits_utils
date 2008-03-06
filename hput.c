@@ -93,13 +93,13 @@ hputr4 (hstring, keyword, rval)
 
 char *hstring;          /* FITS header string */
 const char *keyword;    /* Keyword name */
-const float *rval;      /* float number */
+const float rval;       /* float number */
 
 {
     char value[30];
 
     /* Translate value from binary to ASCII */
-    sprintf (value, "%f", *rval);
+    sprintf (value, "%f", rval);
 
     /* Remove sign if string is -0 or extension thereof */
     fixnegzero (value);

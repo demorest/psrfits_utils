@@ -212,7 +212,7 @@ extern "C" {
     int hputr4(         /* Implant float value into FITS header */
         char* hstring,          /* FITS header string (modified) */
         const char* keyword,    /* FITS keyword */
-        const float* rval);     /* float (4 byte) value */
+        const float rval);      /* float (4 byte) value */
     int hputr8(         /* Implant short into FITS header */
         char* hstring,          /* FITS header string (modified) */
         const char* keyword,    /* FITS keyword */
