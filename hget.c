@@ -75,7 +75,7 @@ static int use_saolib=0;
 
 char *hgetc ();
 
-/* Don't know why this is static/global, seems to be just a 
+/* Don't know why this is global, seems to be just a 
  * temp buffer for parsing strings.  Made local copies in
  * each function that uses it. --PBD
  */
@@ -86,7 +86,7 @@ char *hgetc ();
  * --PBD 
  */
 //static int multiline = 0;
-const int multiline = 0;
+const static int multiline = 0;
 
 /* This looks like a hack to get around header strings that
  * aren't null terminated.  We can fix it at zero as long as
@@ -94,7 +94,7 @@ const int multiline = 0;
  * out.  --PBD
  */
 //static int lhead0 = 0;  /* Length of header string */
-const int lhead0 = 0;  /* Length of header string */
+const static int lhead0 = 0;  /* Length of header string */
 
 /* Set the length of the header string, if not terminated by NULL */
 int
