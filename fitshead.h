@@ -95,11 +95,13 @@ extern "C" {
         const char* keyword,    /* FITS keyword */
         const int lstr,         /* maximum length of returned string */
         char* string);          /* null-terminated string value (returned) */
+#if 0 
     int hgetm (                 /* Extract string from multiple keywords */
         const char* hstring,    /* FITS header string */
         const char* keyword,    /* FITS keyword */
         const int lstr,         /* maximum length of returned string */
         char* string);          /* null-terminated string value (returned) */
+#endif
     int hgetndec(               /* Find number of decimal places in FITS value*/
         const char* hstring,    /* FITS header string */
         const char* keyword,    /* FITS keyword */
@@ -210,7 +212,7 @@ extern "C" {
     int hputr4(         /* Implant float value into FITS header */
         char* hstring,          /* FITS header string (modified) */
         const char* keyword,    /* FITS keyword */
-        const float* rval);     /* float (4 byte) value */
+        const float rval);      /* float (4 byte) value */
     int hputr8(         /* Implant short into FITS header */
         char* hstring,          /* FITS header string (modified) */
         const char* keyword,    /* FITS keyword */
@@ -302,7 +304,7 @@ extern int hgetdate();  /* Date in years from FITS date string */
 extern int hgetl();     /* T->1, F->0 from FITS logical entry */
 extern int hgets();     /* Previously allocated string */
 extern int hgetsc();    /* Previously allocated string (Multiple WCS) */
-extern int hgetm();     /* Previously allocated string from multiple keywords */
+//extern int hgetm();     /* Previously allocated string from multiple keywords */
 extern char *hgetc();   /* Return pointer to string */
 extern int hgetndec();  /* Number of decimal places in keyword value */
 
