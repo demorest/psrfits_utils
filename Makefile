@@ -1,5 +1,4 @@
-CC = gcc
-CFLAGS = -g -O2 -Wall
+CFLAGS = -g -O3 -Wall
 PROGS = check_guppi_status clean_guppi_shmem test_udp_recv \
 	check_guppi_databuf test_net_thread
 OBJS = guppi_net_thread.o guppi_rawdisk_thread.o\
