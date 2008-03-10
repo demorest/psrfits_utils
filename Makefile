@@ -9,6 +9,10 @@ LIBS = -lcfitsio -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS)
 clean:
 	rm -f $(PROGS) $(THREAD_PROGS) *~ *.o
+INSTALL_DIR = ../bin
+install: $(PROGS) $(THREAD_PROGS)
+	mkdir -p $(INSTALL_DIR) && \
+	cp -f -p $(PROGS) $(THREAD_PROGS) $(INSTALL_DIR)
 .SECONDEXPANSION:
 $(PROGS): $$@.c $(OBJS)
 	$(CC) $(CFLAGS) $< -o $@ $(OBJS) $(LIBS)
