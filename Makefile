@@ -1,8 +1,7 @@
 CFLAGS = -g -O3 -Wall
-PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem test_udp_recv 
+PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem test_udp_recv test_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
-        guppi_params.o \
-        hget.o hput.o
+        guppi_params.o write_psrfits.o hget.o hput.o
 THREAD_PROGS = test_net_thread
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o 
 LIBS = -lcfitsio -lm -lpthread
