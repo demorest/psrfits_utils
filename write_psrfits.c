@@ -100,6 +100,8 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     dtmp = (double) ldtmp;
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     // Note:  1 sidereal day = 86164.0905 seconds
+    // CALL sla_OBS (N, C, NAME, W, P, H)
+    // sla_GMST (UT1)
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
     // Go to the SUBINT HDU
@@ -190,6 +192,14 @@ int psrfits_write_subint(struct psrfits *pf) {
     // Need to change this for other data types...
     fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
                    sub->data, status);
+
+    // Flush the buffers
+    if (pf->tot_rows==0) {
+        fits_flush_file(pf->fptr, status);
+    } else {
+        fits_update_key(pf->fptr, TLONG, "NAXIS2", &(pf->rownum), NULL, status);
+        fits_flush_buffer(pf->fptr, 0, status);
+    }
 
     // Now update some key values
     pf->rownum++;
