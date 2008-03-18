@@ -28,9 +28,10 @@ int main(int argc, char *argv[]) {
     
     strcpy(pf.basefilename, "test_psrfits");
     pf.filenum = 0;          // This is the crucial one to set to initialize things
-    pf.rows_per_file = 4;    // Need to set this based on PSRFITS_MAXFILELEN
+    pf.rows_per_file = 100;  // Need to set this based on PSRFITS_MAXFILELEN
 
     // Now set values for our hdrinfo structure
+    pf.hdr.scanlen = 0.1; // in sec
     strcpy(pf.hdr.observer, "John Doe");
     strcpy(pf.hdr.source, "Cool PSR A");
     strcpy(pf.hdr.frontend, "L-band");
@@ -52,17 +53,16 @@ int main(int argc, char *argv[]) {
     pf.hdr.beam_FWHM = 0.25;
     pf.hdr.start_lst = 10000.0;
     pf.hdr.start_sec = 25000.82736876;
-    pf.hdr.scanlen = 200;
     pf.hdr.start_day = 55000;
     pf.hdr.scan_number = 3;
     pf.hdr.rcvr_polns = 2;
-    pf.hdr.summed_polns = 1;
+    pf.hdr.summed_polns = 0;
     pf.hdr.offset_subint = 0;
-    pf.hdr.nchan = 256;
+    pf.hdr.nchan = 2048;
     pf.hdr.orig_nchan = pf.hdr.nchan;
     pf.hdr.orig_df = pf.hdr.df = pf.hdr.BW / pf.hdr.nchan;
     pf.hdr.nbits = 8;
-    pf.hdr.npol = 1;
+    pf.hdr.npol = 4;
     pf.hdr.nsblk = 100;
     pf.hdr.MJD_epoch = 55555.123123123123123123L;  // Note the "L" for long double
 
@@ -102,21 +102,28 @@ int main(int argc, char *argv[]) {
 
     // This is what you would update for each time sample (likely just
     // adjusting the pointer to point to your data)
-
     pf.sub.data = (unsigned char *)malloc(pf.sub.bytes_per_subint);
     for (ii = 0 ; ii < pf.sub.bytes_per_subint ; ii++) {
         pf.sub.data[ii] = ii % 256;
     }
 
-    // Now initialize and write several subints worth of data
-    for (ii = 0 ; ii < 17 ; ii++) {
+    // Here is the real data-writing loop
+    do {
+        // Update the pf.sub entries here for each subint
+        // as well as the pf.sub.data pointer
         psrfits_write_subint(&pf);
-    }
+    } while (pf.T < pf.hdr.scanlen);
 
-    // Close the file
+    // Close the last file and cleanup
     fits_close_file(pf.fptr, &(pf.status));
-    printf("Done.  Wrote %d subints in %d files.  status = %d\n", 
-           pf.tot_rows, pf.filenum, pf.status);
+    free(pf.sub.dat_freqs);
+    free(pf.sub.dat_weights);
+    free(pf.sub.dat_offsets);
+    free(pf.sub.dat_scales);
+    free(pf.sub.data);
+
+    printf("Done.  Wrote %d subints (%f sec) in %d files.  status = %d\n", 
+           pf.tot_rows, pf.T, pf.filenum, pf.status);
 
     exit(0);
 }
