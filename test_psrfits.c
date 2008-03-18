@@ -19,109 +19,104 @@ void dec2hms(char *out, double in, int sflag) {
 }
 
 int main(int argc, char *argv[]) {
-    int status = 0, ii;
+    int ii;
     double dtmp;
-    fitsfile *fptr;
-    struct psrfits_hdrinfo pfh;
-    struct psrfits_subint pfs;
+    struct psrfits pf;
     
-    // First, set values for our hdrinfo structure
-    strcpy(pfh.filename, "test_psrfits.fits");
-    strcpy(pfh.observer, "John Doe");
-    strcpy(pfh.source, "Cool PSR A");
-    strcpy(pfh.frontend, "L-band");
-    strcpy(pfh.project_id, "GBT09A-001");
-    strcpy(pfh.date_obs, "2010-01-01T05:15:30.000");
-    strcpy(pfh.poln_type, "LIN");
-    strcpy(pfh.track_mode, "TRACK");
-    strcpy(pfh.cal_mode, "OFF");
-    strcpy(pfh.feed_mode, "FA");
-    pfh.dt = 0.000050;
-    pfh.fctr = 1400.0;
-    pfh.nchan = 256;
-    pfh.BW = 800.0;
-    pfh.orig_df = pfh.df = pfh.BW / pfh.nchan;
-    pfh.ra2000 = 302.0876876;
-    dec2hms(pfh.ra_str, pfh.ra2000/15.0, 0);
-    pfh.dec2000 = -3.456987698;
-    dec2hms(pfh.dec_str, pfh.dec2000, 1);
-    pfh.azimuth = 123.123;
-    pfh.zenith_ang = 23.0;
-    pfh.beam_FWHM = 0.25;
-    pfh.start_lst = 10000.0;
-    pfh.start_sec = 25000.82736876;
-    pfh.scanlen = 200;
-    pfh.start_day = 55000;
-    pfh.scan_number = 3;
-    pfh.orig_nchan = pfh.nchan;
-    pfh.rcvr_polns = 2;
-    pfh.npol = 1;
-    pfh.summed_polns = 1;
-    pfh.start_spec = 0;
-    pfh.nbits = 8;
-    pfh.nsblk = 200;
-    pfh.MJD_epoch = 55555.123123123123123123L;  // Note the "L" for long double
+    // Only set the basefilename and not "filename"
+    // Also, fptr will be set by psrfits_create_searchmode()
+    
+    strcpy(pf.basefilename, "test_psrfits");
+    pf.filenum = 0;          // This is the crucial one to set to initialize things
+    pf.rows_per_file = 4;    // Need to set this based on PSRFITS_MAXFILELEN
+
+    // Now set values for our hdrinfo structure
+    strcpy(pf.hdr.observer, "John Doe");
+    strcpy(pf.hdr.source, "Cool PSR A");
+    strcpy(pf.hdr.frontend, "L-band");
+    strcpy(pf.hdr.project_id, "GBT09A-001");
+    strcpy(pf.hdr.date_obs, "2010-01-01T05:15:30.000");
+    strcpy(pf.hdr.poln_type, "LIN");
+    strcpy(pf.hdr.track_mode, "TRACK");
+    strcpy(pf.hdr.cal_mode, "OFF");
+    strcpy(pf.hdr.feed_mode, "FA");
+    pf.hdr.dt = 0.000050;
+    pf.hdr.fctr = 1400.0;
+    pf.hdr.BW = 800.0;
+    pf.hdr.ra2000 = 302.0876876;
+    dec2hms(pf.hdr.ra_str, pf.hdr.ra2000/15.0, 0);
+    pf.hdr.dec2000 = -3.456987698;
+    dec2hms(pf.hdr.dec_str, pf.hdr.dec2000, 1);
+    pf.hdr.azimuth = 123.123;
+    pf.hdr.zenith_ang = 23.0;
+    pf.hdr.beam_FWHM = 0.25;
+    pf.hdr.start_lst = 10000.0;
+    pf.hdr.start_sec = 25000.82736876;
+    pf.hdr.scanlen = 200;
+    pf.hdr.start_day = 55000;
+    pf.hdr.scan_number = 3;
+    pf.hdr.rcvr_polns = 2;
+    pf.hdr.summed_polns = 1;
+    pf.hdr.offset_subint = 0;
+    pf.hdr.nchan = 256;
+    pf.hdr.orig_nchan = pf.hdr.nchan;
+    pf.hdr.orig_df = pf.hdr.df = pf.hdr.BW / pf.hdr.nchan;
+    pf.hdr.nbits = 8;
+    pf.hdr.npol = 1;
+    pf.hdr.nsblk = 100;
+    pf.hdr.MJD_epoch = 55555.123123123123123123L;  // Note the "L" for long double
 
     // Now set values for our subint structure
-    pfs.tsubint = pfh.nsblk * pfh.dt;
-    pfs.rownum = 0;
-    pfs.offs = (pfs.rownum + 0.5) * pfs.tsubint;
-    pfs.lst = pfh.start_lst;
-    pfs.ra = pfh.ra2000;
-    pfs.dec = pfh.dec2000;
+    pf.sub.tsubint = pf.hdr.nsblk * pf.hdr.dt;
+    pf.sub.offs = (pf.tot_rows + 0.5) * pf.sub.tsubint;
+    pf.sub.lst = pf.hdr.start_lst;
+    pf.sub.ra = pf.hdr.ra2000;
+    pf.sub.dec = pf.hdr.dec2000;
     // Need to fix these.  Link with SLALIB?
-    pfs.glon = 0.0;
-    pfs.glat = 0.0;
-    pfs.feed_ang = 0.0;
-    pfs.pos_ang = 0.0;
-    pfs.par_ang = 0.0;
-    pfs.tel_az = pfh.azimuth;
-    pfs.tel_zen = pfh.zenith_ang;
-    pfs.nbits = pfh.nbits;
-    pfs.nchan = pfh.nchan;
-    pfs.npol = pfh.npol;
-    pfs.nsblk = pfh.nsblk;
-    pfs.bytes_per_subint = (pfs.nbits * pfs.nchan * pfs.npol * pfs.nsblk) / 8;
-    pfs.FITS_typecode = TBYTE;  // 11 = byte
-    pfs.max_rows = 100;  // Need to set this based on PSRFITS_MAXFILELEN
+    pf.sub.glon = 0.0;
+    pf.sub.glat = 0.0;
+    pf.sub.feed_ang = 0.0;
+    pf.sub.pos_ang = 0.0;
+    pf.sub.par_ang = 0.0;
+    pf.sub.tel_az = pf.hdr.azimuth;
+    pf.sub.tel_zen = pf.hdr.zenith_ang;
+    pf.sub.bytes_per_subint = (pf.hdr.nbits * pf.hdr.nchan * 
+                               pf.hdr.npol * pf.hdr.nsblk) / 8;
+    pf.sub.FITS_typecode = TBYTE;  // 11 = byte
 
     // Create and initialize the subint arrays
-    pfs.dat_freqs = (float *)malloc(sizeof(float) * pfs.nchan);
-    pfs.dat_weights = (float *)malloc(sizeof(float) * pfs.nchan);
-    dtmp = pfh.fctr - 0.5 * pfh.BW + 0.5 * pfh.df;
-    for (ii = 0 ; ii < pfs.nchan ; ii++) {
-        pfs.dat_freqs[ii] = dtmp + ii * pfh.df;
-        pfs.dat_weights[ii] = 1.0;
+    pf.sub.dat_freqs = (float *)malloc(sizeof(float) * pf.hdr.nchan);
+    pf.sub.dat_weights = (float *)malloc(sizeof(float) * pf.hdr.nchan);
+    dtmp = pf.hdr.fctr - 0.5 * pf.hdr.BW + 0.5 * pf.hdr.df;
+    for (ii = 0 ; ii < pf.hdr.nchan ; ii++) {
+        pf.sub.dat_freqs[ii] = dtmp + ii * pf.hdr.df;
+        pf.sub.dat_weights[ii] = 1.0;
     }
-    pfs.dat_offsets = (float *)malloc(sizeof(float) * pfs.nchan * pfs.npol);
-    pfs.dat_scales = (float *)malloc(sizeof(float) * pfs.nchan * pfs.npol);
-    for (ii = 0 ; ii < pfs.nchan * pfs.npol ; ii++) {
-        pfs.dat_offsets[ii] = 0.0;
-        pfs.dat_scales[ii] = 1.0;
+    pf.sub.dat_offsets = (float *)malloc(sizeof(float) * pf.hdr.nchan * pf.hdr.npol);
+    pf.sub.dat_scales = (float *)malloc(sizeof(float) * pf.hdr.nchan * pf.hdr.npol);
+    for (ii = 0 ; ii < pf.hdr.nchan * pf.hdr.npol ; ii++) {
+        pf.sub.dat_offsets[ii] = 0.0;
+        pf.sub.dat_scales[ii] = 1.0;
     }
  
-    pfs.data = (unsigned char *)malloc(pfs.bytes_per_subint);
-    for (ii = 0 ; ii < pfs.bytes_per_subint ; ii++) {
-        pfs.data[ii] = ii % 256;
+
+    // This is what you would update for each time sample (likely just
+    // adjusting the pointer to point to your data)
+
+    pf.sub.data = (unsigned char *)malloc(pf.sub.bytes_per_subint);
+    for (ii = 0 ; ii < pf.sub.bytes_per_subint ; ii++) {
+        pf.sub.data[ii] = ii % 256;
     }
 
-    // Create the PSRFITS file
-    psrfits_create_searchmode(&fptr, &pfh, &status);
-
-    // Now write several subints worth of data
-    psrfits_write_subint(fptr, &pfs, &status);
-    pfs.rownum++;
-    pfs.offs = (pfs.rownum + 0.5) * pfs.tsubint;
-
-    psrfits_write_subint(fptr, &pfs, &status);
-    pfs.rownum++;
-    pfs.offs = (pfs.rownum + 0.5) * pfs.tsubint;
-
-    psrfits_write_subint(fptr, &pfs, &status);
+    // Now initialize and write several subints worth of data
+    for (ii = 0 ; ii < 17 ; ii++) {
+        psrfits_write_subint(&pf);
+    }
 
     // Close the file
-    fits_close_file(fptr, &status);
-    printf("status = %d\n", status);
+    fits_close_file(pf.fptr, &(pf.status));
+    printf("Done.  Wrote %d subints in %d files.  status = %d\n", 
+           pf.tot_rows, pf.filenum, pf.status);
 
     exit(0);
 }

@@ -7,7 +7,7 @@ THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o
 LIBS = -lcfitsio -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS)
 clean:
-	rm -f $(PROGS) $(THREAD_PROGS) *~ *.o
+	rm -f $(PROGS) $(THREAD_PROGS) *~ *.o test_psrfits_0*.fits
 INSTALL_DIR = ../bin
 install: $(PROGS) $(THREAD_PROGS)
 	mkdir -p $(INSTALL_DIR) && \
