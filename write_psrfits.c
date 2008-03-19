@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include "write_psrfits.h"
 
 int psrfits_create_searchmode(struct psrfits *pf) {
@@ -8,8 +7,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     long double ldtmp;
     double dtmp;
     char ctmp[40];
-    time_t t;
-    struct tm ts;
     struct hdrinfo *hdr;
 
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
@@ -37,12 +34,9 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
 
     // Update the keywords that need it
-    sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
     // Note:  this is the date that the file was _written_, not the 
     // observation start date
-    t = time(NULL);
-    gmtime_r(&t, &ts);
-    strftime(ctmp, 40, "%FT%T", &ts); 
+    fits_get_system_time(ctmp, &itmp, status);
     fits_update_key(pf->fptr, TSTRING, "DATE", ctmp, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
@@ -193,13 +187,13 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
                    sub->data, status);
 
-    // Flush the buffers
-    if (pf->tot_rows==0) {
-        fits_flush_file(pf->fptr, status);
-    } else {
-        fits_update_key(pf->fptr, TLONG, "NAXIS2", &(pf->rownum), NULL, status);
-        fits_flush_buffer(pf->fptr, 0, status);
-    }
+    // Flush the buffers if not finished with the file
+    // Note:  this use is not entirely in keeping with the CFITSIO
+    //        documentation recommendations.  However, manually 
+    //        correcting NAXIS2 and using fits_flush_buffer()
+    //        caused occasional hangs (and extrememly large
+    //        files due to some infinite loop).
+    fits_flush_file(pf->fptr, status);
 
     // Now update some key values
     pf->rownum++;
