@@ -28,15 +28,15 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
+    printf("Opening file '%s'\n", pf->filename);
     fits_create_template(&(pf->fptr), pf->filename, PSRFITS_TEMPLATE, status);
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
 
     // Update the keywords that need it
-    // Note:  this is the date that the file was _written_, not the 
-    // observation start date
     fits_get_system_time(ctmp, &itmp, status);
+    // Note:  this is the date the file was _written_, not the obs start date
     fits_update_key(pf->fptr, TSTRING, "DATE", ctmp, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
@@ -57,8 +57,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         }
     }
     fits_update_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
-    // Need to make entries here for the specific polarization 
-    // settings PF_HAND< FD_SANG, FD_XYPH
+    // TODO: Need to include specific poln settings PF_HAND< FD_SANG, FD_XYPH
     fits_update_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
@@ -68,18 +67,17 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         printf("Warning!:  We don't currently handle non-tracking observations!\n");
         fits_update_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
     }
-    // Note:  will need to change the following if we aren't tracking!
+    // TODO: will need to change the following if we aren't tracking!
     fits_update_key(pf->fptr, TSTRING, "RA", hdr->ra_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "DEC", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STT_CRD1", hdr->ra_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STP_CRD1", hdr->ra_str, NULL, status);
-    // Should update these at the end of the file (or obs?)
+    // TODO: update these at the end of the file or obs
     fits_update_key(pf->fptr, TSTRING, "STT_CRD2", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STP_CRD2", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "BMAJ", &(hdr->beam_FWHM), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "BMIN", &(hdr->beam_FWHM), NULL, status);
     if (strcmp("OFF", hdr->cal_mode)) {
-        printf("Yikes!\n");
         fits_update_key(pf->fptr, TDOUBLE, "CAL_FREQ", &(hdr->cal_freq), NULL, status);
         fits_update_key(pf->fptr, TDOUBLE, "CAL_DCYC", &(hdr->cal_dcyc), NULL, status);
         fits_update_key(pf->fptr, TDOUBLE, "CAL_PHS", &(hdr->cal_phs), NULL, status);
@@ -94,8 +92,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     dtmp = (double) ldtmp;
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     // Note:  1 sidereal day = 86164.0905 seconds
-    // CALL sla_OBS (N, C, NAME, W, P, H)
-    // sla_GMST (UT1)
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
     // Go to the SUBINT HDU
@@ -104,7 +100,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     // Update the keywords that need it
     fits_update_key(pf->fptr, TLONG, "NPOL", &(hdr->npol), NULL, status);
     if (!hdr->summed_polns) {
-        printf("Warning!: POL_TYPE might be incorrect!\n");
+        // TODO:  These need to be updated for the real machine.
         if (hdr->npol==1)
             strcpy(ctmp, "AA");
         else if (hdr->npol==2)
@@ -133,10 +129,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     // Update the TDIM field for the data column
     sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
     fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
-    // The following is an alternate way to do that, but it copies
-    // the TDIM17 field instead of updating it
-    // long naxes[4] = {1, hdr->nchan, hdr->npol, hdr->nsblk};
-    // fits_write_tdim(pf->fptr, 17, 4, naxes, status);
     
     return *status;
 }
