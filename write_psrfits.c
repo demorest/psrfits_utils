@@ -148,7 +148,10 @@ int psrfits_write_subint(struct psrfits *pf) {
 
     // Create the initial file or change to a new one if needed
     if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
-        if (pf->filenum) fits_close_file(pf->fptr, status);
+        if (pf->filenum) {
+            printf("Closing file '%s'\n", pf->filename);
+            fits_close_file(pf->fptr, status);
+        }
         psrfits_create_searchmode(pf);
     }
 
