@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include "write_psrfits.h"
 
 int psrfits_create_searchmode(struct psrfits *pf) {
@@ -8,8 +7,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     long double ldtmp;
     double dtmp;
     char ctmp[40];
-    time_t t;
-    struct tm ts;
     struct hdrinfo *hdr;
 
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
@@ -31,18 +28,15 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
+    printf("Opening file '%s'\n", pf->filename);
     fits_create_template(&(pf->fptr), pf->filename, PSRFITS_TEMPLATE, status);
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
 
     // Update the keywords that need it
-    sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
-    // Note:  this is the date that the file was _written_, not the 
-    // observation start date
-    t = time(NULL);
-    gmtime_r(&t, &ts);
-    strftime(ctmp, 40, "%FT%T", &ts); 
+    fits_get_system_time(ctmp, &itmp, status);
+    // Note:  this is the date the file was _written_, not the obs start date
     fits_update_key(pf->fptr, TSTRING, "DATE", ctmp, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
@@ -63,8 +57,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         }
     }
     fits_update_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
-    // Need to make entries here for the specific polarization 
-    // settings PF_HAND< FD_SANG, FD_XYPH
+    // TODO: Need to include specific poln settings PF_HAND< FD_SANG, FD_XYPH
     fits_update_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
@@ -74,18 +67,17 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         printf("Warning!:  We don't currently handle non-tracking observations!\n");
         fits_update_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
     }
-    // Note:  will need to change the following if we aren't tracking!
+    // TODO: will need to change the following if we aren't tracking!
     fits_update_key(pf->fptr, TSTRING, "RA", hdr->ra_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "DEC", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STT_CRD1", hdr->ra_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STP_CRD1", hdr->ra_str, NULL, status);
-    // Should update these at the end of the file (or obs?)
+    // TODO: update these at the end of the file or obs
     fits_update_key(pf->fptr, TSTRING, "STT_CRD2", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "STP_CRD2", hdr->dec_str, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "BMAJ", &(hdr->beam_FWHM), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "BMIN", &(hdr->beam_FWHM), NULL, status);
     if (strcmp("OFF", hdr->cal_mode)) {
-        printf("Yikes!\n");
         fits_update_key(pf->fptr, TDOUBLE, "CAL_FREQ", &(hdr->cal_freq), NULL, status);
         fits_update_key(pf->fptr, TDOUBLE, "CAL_DCYC", &(hdr->cal_dcyc), NULL, status);
         fits_update_key(pf->fptr, TDOUBLE, "CAL_PHS", &(hdr->cal_phs), NULL, status);
@@ -108,7 +100,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     // Update the keywords that need it
     fits_update_key(pf->fptr, TLONG, "NPOL", &(hdr->npol), NULL, status);
     if (!hdr->summed_polns) {
-        printf("Warning!: POL_TYPE might be incorrect!\n");
+        // TODO:  These need to be updated for the real machine.
         if (hdr->npol==1)
             strcpy(ctmp, "AA");
         else if (hdr->npol==2)
@@ -137,10 +129,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     // Update the TDIM field for the data column
     sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
     fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
-    // The following is an alternate way to do that, but it copies
-    // the TDIM17 field instead of updating it
-    // long naxes[4] = {1, hdr->nchan, hdr->npol, hdr->nsblk};
-    // fits_write_tdim(pf->fptr, 17, 4, naxes, status);
     
     return *status;
 }
@@ -160,7 +148,10 @@ int psrfits_write_subint(struct psrfits *pf) {
 
     // Create the initial file or change to a new one if needed
     if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
-        if (pf->filenum) fits_close_file(pf->fptr, status);
+        if (pf->filenum) {
+            printf("Closing file '%s'\n", pf->filename);
+            fits_close_file(pf->fptr, status);
+        }
         psrfits_create_searchmode(pf);
     }
 
@@ -190,6 +181,14 @@ int psrfits_write_subint(struct psrfits *pf) {
     // Need to change this for other data types...
     fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
                    sub->data, status);
+
+    // Flush the buffers if not finished with the file
+    // Note:  this use is not entirely in keeping with the CFITSIO
+    //        documentation recommendations.  However, manually 
+    //        correcting NAXIS2 and using fits_flush_buffer()
+    //        caused occasional hangs (and extrememly large
+    //        files due to some infinite loop).
+    fits_flush_file(pf->fptr, status);
 
     // Now update some key values
     pf->rownum++;
