@@ -3,6 +3,14 @@
 #include <string.h>
 #include <math.h>
 #include "write_psrfits.h"
+#include "slalib.h"
+
+#ifndef DEGTORAD
+#define DEGTORAD 0.017453292519943295769236907684886127134428718885417
+#endif
+#ifndef RADTODEG
+#define RADTODEG 57.29577951308232087679815481410517033240547246656
+#endif
 
 void dec2hms(char *out, double in, int sflag) {
     int sign = 1;
@@ -28,10 +36,10 @@ int main(int argc, char *argv[]) {
     
     strcpy(pf.basefilename, "test_psrfits");
     pf.filenum = 0;          // This is the crucial one to set to initialize things
-    pf.rows_per_file = 100;  // Need to set this based on PSRFITS_MAXFILELEN
+    pf.rows_per_file = 1000;  // Need to set this based on PSRFITS_MAXFILELEN
 
     // Now set values for our hdrinfo structure
-    pf.hdr.scanlen = 0.1; // in sec
+    pf.hdr.scanlen = 10.0; // in sec
     strcpy(pf.hdr.observer, "John Doe");
     strcpy(pf.hdr.source, "Cool PSR A");
     strcpy(pf.hdr.frontend, "L-band");
@@ -56,13 +64,13 @@ int main(int argc, char *argv[]) {
     pf.hdr.start_day = 55000;
     pf.hdr.scan_number = 3;
     pf.hdr.rcvr_polns = 2;
-    pf.hdr.summed_polns = 0;
+    pf.hdr.summed_polns = 1;
     pf.hdr.offset_subint = 0;
-    pf.hdr.nchan = 2048;
+    pf.hdr.nchan = 1024;
     pf.hdr.orig_nchan = pf.hdr.nchan;
     pf.hdr.orig_df = pf.hdr.df = pf.hdr.BW / pf.hdr.nchan;
     pf.hdr.nbits = 8;
-    pf.hdr.npol = 4;
+    pf.hdr.npol = 1;
     pf.hdr.nsblk = 100;
     pf.hdr.MJD_epoch = 55555.123123123123123123L;  // Note the "L" for long double
 
@@ -72,9 +80,10 @@ int main(int argc, char *argv[]) {
     pf.sub.lst = pf.hdr.start_lst;
     pf.sub.ra = pf.hdr.ra2000;
     pf.sub.dec = pf.hdr.dec2000;
-    // Need to fix these.  Link with SLALIB?
-    pf.sub.glon = 0.0;
-    pf.sub.glat = 0.0;
+    slaEqgal(pf.hdr.ra2000*DEGTORAD, pf.hdr.dec2000*DEGTORAD, 
+             &pf.sub.glon, &pf.sub.glat);
+    pf.sub.glon *= RADTODEG;
+    pf.sub.glat *= RADTODEG;
     pf.sub.feed_ang = 0.0;
     pf.sub.pos_ang = 0.0;
     pf.sub.par_ang = 0.0;
