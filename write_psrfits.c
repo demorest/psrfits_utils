@@ -91,7 +91,6 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     ldtmp -= (long double) itmp;
     dtmp = (double) ldtmp;
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
-    // Note:  1 sidereal day = 86164.0905 seconds
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
     // Go to the SUBINT HDU
