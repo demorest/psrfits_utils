@@ -201,5 +201,5 @@ int psrfits_write_subint(struct psrfits *pf) {
 
 int psrfits_close(struct psrfits *pf) {
     fits_close_file(pf->fptr, &(pf->status));
+    return pf->status;
 }
-
