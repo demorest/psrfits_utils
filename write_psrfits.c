@@ -197,3 +197,9 @@ int psrfits_write_subint(struct psrfits *pf) {
     
     return *status;
 }
+
+
+int psrfits_close(struct psrfits *pf) {
+    fits_close_file(pf->fptr, &(pf->status));
+}
+
