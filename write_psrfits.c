@@ -105,8 +105,10 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         else if (hdr->npol==2)
             strcpy(ctmp, "AABB");
         else if (hdr->npol==4)
-            strcpy(ctmp, "AABBCRCI");
+            strcpy(ctmp, "IQUV");
         fits_update_key(pf->fptr, TSTRING, "POL_TYPE", ctmp, NULL, status);
+    } else {
+        fits_update_key(pf->fptr, TSTRING, "POL_TYPE", "AA+BB", NULL, status);
     }
     fits_update_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
     fits_update_key(pf->fptr, TLONG, "NBITS", &(hdr->nbits), NULL, status);
@@ -200,6 +202,8 @@ int psrfits_write_subint(struct psrfits *pf) {
 
 
 int psrfits_close(struct psrfits *pf) {
+    printf("Done.  Wrote %d subints (%f sec) in %d files (status = %d).\n",
+           pf->tot_rows, pf->T, pf->filenum, pf->status);
     fits_close_file(pf->fptr, &(pf->status));
     return pf->status;
 }
