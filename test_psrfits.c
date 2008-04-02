@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     pf.rows_per_file = 200;  // Need to set this based on PSRFITS_MAXFILELEN
 
     // Now set values for our hdrinfo structure
-    pf.hdr.scanlen = 500; // in sec
+    pf.hdr.scanlen = 5; // in sec
     strcpy(pf.hdr.observer, "John Doe");
     strcpy(pf.hdr.source, "Cool PSR A");
     strcpy(pf.hdr.frontend, "L-band");
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     pf.hdr.orig_nchan = pf.hdr.nchan;
     pf.hdr.orig_df = pf.hdr.df = pf.hdr.BW / pf.hdr.nchan;
     pf.hdr.nbits = 8;
-    pf.hdr.npol = 4;
+    pf.hdr.npol = 1;
     pf.hdr.nsblk = 10000;
     pf.hdr.MJD_epoch = 55555.123123123123123123L;  // Note the "L" for long double
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
         // Update the pf.sub entries here for each subint
         // as well as the pf.sub.data pointer
         psrfits_write_subint(&pf);
-    } while (pf.T < pf.hdr.scanlen);
+    } while (pf.T < pf.hdr.scanlen && !pf.status);
 
     // Close the last file and cleanup
     fits_close_file(pf.fptr, &(pf.status));

@@ -47,13 +47,13 @@ int psrfits_create_searchmode(struct psrfits *pf) {
                    hdr->npol);
         }
         itmp = 2;
-        fits_update_key(pf->fptr, TLONG, "NRCVR", &itmp, NULL, status);
+        fits_update_key(pf->fptr, TINT, "NRCVR", &itmp, NULL, status);
     } else {
         if (hdr->npol > 2) { // Can't have more than 2 polns
             itmp = 2;
-            fits_update_key(pf->fptr, TLONG, "NRCVR", &itmp, NULL, status);
+            fits_update_key(pf->fptr, TINT, "NRCVR", &itmp, NULL, status);
         } else {
-            fits_update_key(pf->fptr, TLONG, "NRCVR", &(hdr->npol), NULL, status);
+            fits_update_key(pf->fptr, TINT, "NRCVR", &(hdr->npol), NULL, status);
         }
     }
     fits_update_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
@@ -61,7 +61,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     fits_update_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
-    fits_update_key(pf->fptr, TLONG, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
+    fits_update_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
     fits_update_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
     if (strcmp("TRACK", hdr->track_mode)) {
         printf("Warning!:  We don't currently handle non-tracking observations!\n");
@@ -84,10 +84,10 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     }
     fits_update_key(pf->fptr, TDOUBLE, "SCANLEN", &(hdr->scanlen), NULL, status);
     itmp = (int) hdr->MJD_epoch;
-    fits_update_key(pf->fptr, TLONG, "STT_IMJD", &itmp, NULL, status);
+    fits_update_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
     ldtmp = (hdr->MJD_epoch - (long double) itmp) * 86400.0L;   // in sec
     itmp = (int) ldtmp;
-    fits_update_key(pf->fptr, TLONG, "STT_SMJD", &itmp, NULL, status);
+    fits_update_key(pf->fptr, TINT, "STT_SMJD", &itmp, NULL, status);
     ldtmp -= (long double) itmp;
     dtmp = (double) ldtmp;
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
@@ -97,7 +97,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     fits_movabs_hdu(pf->fptr, 2, NULL, status);
 
     // Update the keywords that need it
-    fits_update_key(pf->fptr, TLONG, "NPOL", &(hdr->npol), NULL, status);
+    fits_update_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
     if (!hdr->summed_polns) {
         // TODO:  These need to be updated for the real machine.
         if (hdr->npol==1)
@@ -111,11 +111,11 @@ int psrfits_create_searchmode(struct psrfits *pf) {
         fits_update_key(pf->fptr, TSTRING, "POL_TYPE", "AA+BB", NULL, status);
     }
     fits_update_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
-    fits_update_key(pf->fptr, TLONG, "NBITS", &(hdr->nbits), NULL, status);
-    fits_update_key(pf->fptr, TLONG, "NSUBOFFS", &(hdr->offset_subint), NULL, status);
-    fits_update_key(pf->fptr, TLONG, "NCHAN", &(hdr->nchan), NULL, status);
+    fits_update_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+    fits_update_key(pf->fptr, TINT, "NSUBOFFS", &(hdr->offset_subint), NULL, status);
+    fits_update_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
-    fits_update_key(pf->fptr, TLONG, "NSBLK", &(hdr->nsblk), NULL, status);
+    fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
 
     // Update the column sizes for the colums containing arrays
     itmp = hdr->nchan;
@@ -191,19 +191,27 @@ int psrfits_write_subint(struct psrfits *pf) {
     //        files due to some infinite loop).
     fits_flush_file(pf->fptr, status);
 
-    // Now update some key values
-    pf->rownum++;
-    pf->tot_rows++;
-    pf->N += hdr->nsblk;
-    pf->T = pf->N * hdr->dt;
+    // Print status if bad
+    fits_report_error(stderr, *status);
+
+    // Now update some key values if no CFITSIO errors
+    if (!(*status)) {
+        pf->rownum++;
+        pf->tot_rows++;
+        pf->N += hdr->nsblk;
+        pf->T = pf->N * hdr->dt;
+    }
     
     return *status;
 }
 
 
 int psrfits_close(struct psrfits *pf) {
+    if (!pf->status) {
+        fits_close_file(pf->fptr, &(pf->status));
+        printf("Closing file '%s'\n", pf->filename);
+    }
     printf("Done.  Wrote %d subints (%f sec) in %d files (status = %d).\n",
            pf->tot_rows, pf->T, pf->filenum, pf->status);
-    fits_close_file(pf->fptr, &(pf->status));
     return pf->status;
 }
