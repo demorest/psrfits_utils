@@ -2,9 +2,11 @@ CFLAGS = -g -O -Wall -I/users/sransom/64bit/include
 PY_INCLUDE = /users/sransom/64bit/include/python2.5
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem test_udp_recv test_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
-        guppi_params.o guppi_time.o write_psrfits.o hget.o hput.o sla.o
+        guppi_params.o guppi_time.o write_psrfits.o \
+	fold.o polyco.o hget.o hput.o sla.o
 THREAD_PROGS = test_net_thread guppi_daq
-THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o guppi_psrfits_thread.o 
+THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
+	       guppi_psrfits_thread.o guppi_fold_thread.o
 LIBS = -L/users/sransom/64bit/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS) _possem.so
 clean:
