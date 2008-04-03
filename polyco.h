@@ -20,6 +20,8 @@ struct polyco {
 
 int read_one_pc(FILE *f, struct polyco *pc);
 int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd);
+int select_pc(struct polyco *pc, int npc, const char *psr,
+        int imjd, double fmjd);
 double psr_phase(struct polyco *pc, int mjd, double fmjd, double *freq);
 double psr_fdot(struct polyco *pc, int mjd, double fmjd, double *fdot);
 double psr_phase_avg(struct polyco *pc, int mjd, double fmjd1, double fmjd2);

@@ -1,9 +1,24 @@
 #ifndef _FOLD_H
 #define _FOLD_H
-#include <fftw3.h>
-int fold_8bit_power(struct polyco *pc, int npc, int imjd, double fmjd,
-        char *data, int nsamp, int nchan, int npol, 
-        double tsamp, double *foldbuf, long long *cntbuf, int nbin);
-int normalize_folds(double *foldbuf, long long *cntbuf, 
-        int nbin, int nchan, int npol);
+#include "polyco.h"
+
+struct foldbuf {
+    int nbin;
+    int nchan;
+    int npol;
+    float *data;
+    unsigned *count;
+};
+
+void malloc_foldbuf(struct foldbuf *f);
+
+void free_foldbuf(struct foldbuf *f);
+
+void clear_foldbuf(struct foldbuf *f);
+
+int normalize_transpose_folds(float *out, struct foldbuf *f);
+
+int fold_8bit_power(struct polyco *pc, int imjd, double fmjd, 
+        char *data, int nsamp, double tsamp, struct foldbuf *f);
+
 #endif
