@@ -7,7 +7,8 @@ OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
 	fold.o polyco.o hget.o hput.o sla.o
 THREAD_PROGS = test_net_thread guppi_daq test_fold_thread
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
-	       guppi_psrfits_thread.o guppi_fold_thread.o
+	       guppi_psrfits_thread.o guppi_fold_thread.o \
+	       guppi_null_thread.o
 LIBS = -L/users/sransom/64bit/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS) _possem.so
 clean:
