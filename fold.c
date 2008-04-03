@@ -33,11 +33,11 @@ int fold_8bit_power(struct polyco *pc, int npc, int imjd, double fmjd,
         if (ibin<0) { ibin+=nbin; }
         if (ibin>=nbin) { ibin-=nbin; }
         dptr = &data[i*nchan*npol];
-        fptr = &foldbuf[ibin];
+        fptr = &foldbuf[ibin*nchan*npol];
         for (ipol=0; ipol<npol; ipol++) {
             for (ichan=0; ichan<nchan; ichan++) {
                 *fptr += (double)(*dptr);
-                fptr+=nbin;
+                fptr++;
                 dptr++;
             }
         }
