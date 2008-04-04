@@ -11,8 +11,8 @@ void malloc_foldbuf(struct foldbuf *f) {
 }
 
 void free_foldbuf(struct foldbuf *f) {
-    free(f->data);
-    free(f->count);
+    if (f->data!=NULL) free(f->data);
+    if (f->count!=NULL) free(f->count);
 }
 
 void clear_foldbuf(struct foldbuf *f) {
@@ -37,7 +37,7 @@ int fold_8bit_power(struct polyco *pc, int imjd, double fmjd,
     double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
 
     /* Check polyco set */
-    if (pc_out_of_range(pc, imjd, fmjd_mid)==0) { return(-1); }
+    if (pc_out_of_range(pc, imjd, fmjd)) { return(-1); }
 
     /* Calc phase, phase step */
     double dphase=0.0;
@@ -64,6 +64,16 @@ int fold_8bit_power(struct polyco *pc, int imjd, double fmjd,
     }
     free(dptr);
 
+    return(0);
+}
+
+int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f) {
+    if (ftot->nbin!=f->nbin || ftot->nchan!=f->nchan || ftot->npol!=f->npol) {
+        return(-1);
+    }
+    int i;
+    for (i=0; i<f->nbin; i++) { ftot->count[i] += f->count[i]; }
+    vector_accumulate(ftot->data, f->data, f->nbin * f->nchan * f->npol);
     return(0);
 }
 

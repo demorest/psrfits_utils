@@ -88,7 +88,7 @@ int select_pc(struct polyco *pc, int npc, const char *psr,
     int ipc;
     for (ipc=0; ipc<npc; ipc++) {
         if (psr!=NULL) { if (strcmp(pc[ipc].psr,psr)!=0) { continue; } }
-        if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break ; }
+        if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break; }
     }
     if (ipc<npc) { return(ipc); }
     return(-1);

@@ -21,4 +21,6 @@ int normalize_transpose_folds(float *out, struct foldbuf *f);
 int fold_8bit_power(struct polyco *pc, int imjd, double fmjd, 
         char *data, int nsamp, double tsamp, struct foldbuf *f);
 
+int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f);
+
 #endif
