@@ -2,7 +2,22 @@
 #include <string.h>
 #include "write_psrfits.h"
 
-int psrfits_create_searchmode(struct psrfits *pf) {
+// Define different obs modes
+static const int search=1, fold=2;
+int psrfits_obs_mode(const char *obs_mode) {
+    if (strcmp("SEARCH", obs_mode)==0) { return(search); }
+    else if (strcmp("FOLD", obs_mode)==0) { return(fold); }
+    else if (strcmp("CAL", obs_mode)==0) { return(fold); }
+    else {
+        // TODO: what to do here? default to search for now
+        printf("Warning: obs_mode '%s' not recognized, defaulting to SEARCH.\n",
+                obs_mode);
+        return(search);
+    }
+    return(search);
+}
+
+int psrfits_create(struct psrfits *pf) {
     int itmp, *status;
     long double ldtmp;
     double dtmp;
@@ -11,6 +26,10 @@ int psrfits_create_searchmode(struct psrfits *pf) {
 
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
     status = &(pf->status);  // dereference the ptr to the CFITSIO status
+
+    // Figure out what mode this is 
+    int mode=0;
+    mode = psrfits_obs_mode(hdr->obs_mode);
 
     // Initialize the key variables if needed
     if (pf->filenum == 0) {  // first time writing to the file
@@ -28,8 +47,15 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
+    // Fold mode template has additional tables (polyco, ephem)
     printf("Opening file '%s'\n", pf->filename);
-    fits_create_template(&(pf->fptr), pf->filename, PSRFITS_TEMPLATE, status);
+    if (mode==search) { 
+        fits_create_template(&(pf->fptr), pf->filename, 
+                PSRFITS_SEARCH_TEMPLATE, status);
+    } else if (mode==fold) { 
+        fits_create_template(&(pf->fptr), pf->filename, 
+                PSRFITS_FOLD_TEMPLATE, status);
+    }
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
@@ -94,7 +120,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
     // Go to the SUBINT HDU
-    fits_movabs_hdu(pf->fptr, 2, NULL, status);
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
     // Update the keywords that need it
     fits_update_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
@@ -110,12 +136,19 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     } else {
         fits_update_key(pf->fptr, TSTRING, "POL_TYPE", "AA+BB", NULL, status);
     }
+    // TODO what does TBIN mean in fold mode?
     fits_update_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
-    fits_update_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
     fits_update_key(pf->fptr, TINT, "NSUBOFFS", &(hdr->offset_subint), NULL, status);
     fits_update_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
-    fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
+    if (mode==search) {
+        fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
+        fits_update_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+    } else if (mode==fold) {
+        itmp = 1;
+        fits_update_key(pf->fptr, TINT, "NSBLK", &itmp, NULL, status);
+        fits_update_key(pf->fptr, TINT, "NBITS", &itmp, NULL, status);
+    }
 
     // Update the column sizes for the colums containing arrays
     itmp = hdr->nchan;
@@ -124,11 +157,17 @@ int psrfits_create_searchmode(struct psrfits *pf) {
     itmp = hdr->nchan * hdr->npol;
     fits_modify_vector_len(pf->fptr, 15, itmp, status); // DAT_OFFS
     fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
-    itmp = (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8;
+    if (mode==search)  
+        itmp = (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8;
+    else if (mode==fold) 
+        itmp = (hdr->nbin * hdr->nchan * hdr->npol);
     fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
 
     // Update the TDIM field for the data column
-    sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
+    if (mode==search)
+        sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
+    else if (mode==fold) 
+        sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, hdr->nchan, hdr->npol);
     fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
     
     return *status;
@@ -136,7 +175,7 @@ int psrfits_create_searchmode(struct psrfits *pf) {
 
 
 int psrfits_write_subint(struct psrfits *pf) {
-    int row, *status, nchan, nivals;
+    int row, *status, nchan, nivals, mode;
     float ftmp;
     struct hdrinfo *hdr;
     struct subint *sub;
@@ -146,6 +185,7 @@ int psrfits_write_subint(struct psrfits *pf) {
     status = &(pf->status);  // dereference the ptr to the CFITSIO status
     nchan = hdr->nchan;
     nivals = hdr->nchan * hdr->npol;
+    mode = psrfits_obs_mode(hdr->obs_mode);
 
     // Create the initial file or change to a new one if needed
     if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
@@ -153,7 +193,7 @@ int psrfits_write_subint(struct psrfits *pf) {
             printf("Closing file '%s'\n", pf->filename);
             fits_close_file(pf->fptr, status);
         }
-        psrfits_create_searchmode(pf);
+        psrfits_create(pf);
     }
 
     row = pf->rownum;
@@ -179,9 +219,15 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_write_col(pf->fptr, TFLOAT, 14, row, 1, nchan, sub->dat_weights, status);
     fits_write_col(pf->fptr, TFLOAT, 15, row, 1, nivals, sub->dat_offsets, status);
     fits_write_col(pf->fptr, TFLOAT, 16, row, 1, nivals, sub->dat_scales, status);
-    // Need to change this for other data types...
-    fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
+    if (mode==search) {
+        // Need to change this for other data types...
+        fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
                    sub->data, status);
+    } else if (mode==fold) { 
+        // Fold mode writes floats for now..
+        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, sub->bytes_per_subint, 
+                   sub->data, status);
+    }
 
     // Flush the buffers if not finished with the file
     // Note:  this use is not entirely in keeping with the CFITSIO
