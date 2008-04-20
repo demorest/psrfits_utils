@@ -5,9 +5,9 @@
 // Define different obs modes
 static const int search=1, fold=2;
 int psrfits_obs_mode(const char *obs_mode) {
-    if (strcmp("SEARCH", obs_mode)==0) { return(search); }
-    else if (strcmp("FOLD", obs_mode)==0) { return(fold); }
-    else if (strcmp("CAL", obs_mode)==0) { return(fold); }
+    if (strncmp("SEARCH", obs_mode, 6)==0) { return(search); }
+    else if (strncmp("FOLD", obs_mode, 4)==0) { return(fold); }
+    else if (strncmp("CAL", obs_mode, 3)==0) { return(fold); }
     else {
         // TODO: what to do here? default to search for now
         printf("Warning: obs_mode '%s' not recognized, defaulting to SEARCH.\n",
@@ -198,7 +198,6 @@ int psrfits_write_subint(struct psrfits *pf) {
 
     row = pf->rownum;
     fits_write_col(pf->fptr, TDOUBLE, 1, row, 1, 1, &(sub->tsubint), status);
-    sub->offs = (pf->tot_rows + 0.5) * sub->tsubint;
     fits_write_col(pf->fptr, TDOUBLE, 2, row, 1, 1, &(sub->offs), status);
     fits_write_col(pf->fptr, TDOUBLE, 3, row, 1, 1, &(sub->lst), status);
     fits_write_col(pf->fptr, TDOUBLE, 4, row, 1, 1, &(sub->ra), status);
