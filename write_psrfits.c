@@ -64,9 +64,11 @@ int psrfits_create(struct psrfits *pf) {
     fits_get_system_time(ctmp, &itmp, status);
     // Note:  this is the date the file was _written_, not the obs start date
     fits_update_key(pf->fptr, TSTRING, "DATE", ctmp, NULL, status);
+    fits_update_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope,NULL, status);
     fits_update_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
+    fits_update_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
     if (hdr->summed_polns) {
         if (hdr->npol > 1) {
             printf("Warning!:  Can't have %d polarizations _and_ be summed!\n", 
