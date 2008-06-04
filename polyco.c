@@ -25,7 +25,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     if (rv==NULL) { return(-1); }
     pc->rphase = atof(&buf[0]);
     pc->f0 = atof(&buf[20]);
-    pc->nsite = buf[42];
+    pc->nsite = atoi(&buf[42]);
     pc->nmin = atoi(&buf[43]);
     pc->nc = atoi(&buf[50]);
     pc->rf = atof(&buf[55]);
@@ -61,7 +61,7 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
         rv = fgets(buf,90,f);
         pc->rphase = atof(&buf[0]);
         pc->f0 = atof(&buf[20]);
-        pc->nsite = buf[42];
+        pc->nsite = atoi(&buf[42]);
         pc->nmin = atoi(&buf[43]);
         pc->nc = atoi(&buf[50]);
         pc->rf = atof(&buf[55]);
@@ -83,11 +83,11 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
 }
 
 /* Select appropriate polyco set */
-int select_pc(struct polyco *pc, int npc, const char *psr,
+int select_pc(const struct polyco *pc, int npc, const char *psr,
         int imjd, double fmjd) {
     int ipc;
     for (ipc=0; ipc<npc; ipc++) {
-        if (psr!=NULL) { if (strcmp(pc[ipc].psr,psr)!=0) { continue; } }
+        if (psr!=NULL) { if (strcmp(pc[ipc].psr,&psr[1])!=0) { continue; } }
         if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break; }
     }
     if (ipc<npc) { return(ipc); }
@@ -95,7 +95,7 @@ int select_pc(struct polyco *pc, int npc, const char *psr,
 }
 
 /* Compute pulsar phase given polyco struct and mjd */
-double psr_phase(struct polyco *pc, int mjd, double fmjd, double *freq) {
+double psr_phase(const struct polyco *pc, int mjd, double fmjd, double *freq) {
     double dt = 1440.0*((double)(mjd-pc->mjd)+(fmjd-pc->fmjd));
     int i;
     double phase = pc->c[pc->nc-1];
@@ -111,7 +111,7 @@ double psr_phase(struct polyco *pc, int mjd, double fmjd, double *freq) {
     return(phase);
 }
 
-double psr_fdot(struct polyco *pc, int mjd, double fmjd, double *fdot) {
+double psr_fdot(const struct polyco *pc, int mjd, double fmjd, double *fdot) {
     double dt = 1440.0*((double)(mjd-pc->mjd)+(fmjd-pc->fmjd));
     if (fabs(dt)>(double)pc->nmin/2.0) { return(-1.0); }
     double fd=0.0;
@@ -124,7 +124,8 @@ double psr_fdot(struct polyco *pc, int mjd, double fmjd, double *fdot) {
     return(fd);
 }
 
-double psr_phase_avg(struct polyco *pc, int mjd, double fmjd1, double fmjd2) {
+double psr_phase_avg(const struct polyco *pc, int mjd, 
+        double fmjd1, double fmjd2) {
     double dt1 = 1440.0*((double)(mjd-pc->mjd)+(fmjd1-pc->fmjd));
     double dt2 = 1440.0*((double)(mjd-pc->mjd)+(fmjd2-pc->fmjd));
     if (fabs(dt1)>(double)pc->nmin/2.0) { return(-1.0); }
@@ -141,7 +142,7 @@ double psr_phase_avg(struct polyco *pc, int mjd, double fmjd1, double fmjd2) {
     return(pavg);
 }
 
-int pc_range_check(struct polyco *pc, int mjd, double fmjd) {
+int pc_range_check(const struct polyco *pc, int mjd, double fmjd) {
     double dt;
     dt = (double)(mjd - pc->mjd) + (fmjd - pc->fmjd);
     dt *= 1440.0;
@@ -150,7 +151,7 @@ int pc_range_check(struct polyco *pc, int mjd, double fmjd) {
     else { return(0); }
 }
 
-int pc_out_of_range(struct polyco *pc, int mjd, double fmjd) {
+int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd) {
     double dt;
     dt = (double)(mjd - pc->mjd) + (fmjd - pc->fmjd);
     dt *= 1440.0;

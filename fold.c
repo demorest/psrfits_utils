@@ -1,6 +1,7 @@
 /* Simple fold routines */
 #include <math.h>
 #include <string.h>
+#include <pthread.h>
 #include "fold.h"
 #include "polyco.h"
 
@@ -20,18 +21,33 @@ void clear_foldbuf(struct foldbuf *f) {
     memset(f->count, 0, sizeof(float) * f->nbin);
 }
 
-static void vector_accumulate(float *out, float *in, int n) {
+static void vector_accumulate(float *out, const float *in, int n) {
     int i;
     for (i=0; i<n; i++) { out[i] += in[i]; }
 }
 
-static void unpack_8bit(float *out, char *in, int n) {
+static int zero_check(const char *dat, int len) {
+    int i, z=1;
+    for (i=0; i<len; i++) { 
+        if (dat[i]!='\0') { z=0; break; }
+    }
+    return(z);
+}
+
+static void unpack_8bit(float *out, const char *in, int n) {
     int i;
     for (i=0; i<n; i++) { out[i] = (float)in[i]; }
 }
 
-int fold_8bit_power(struct polyco *pc, int imjd, double fmjd, 
-        char *data, int nsamp, double tsamp, struct foldbuf *f) {
+void *fold_8bit_power_thread(void *_args) {
+    struct fold_args *args = (struct fold_args *)_args;
+    int rv = fold_8bit_power(args->pc, args->imjd, args->fmjd, args->data,
+            args->nsamp, args->tsamp, args->fb);
+    pthread_exit(&rv);
+}
+
+int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
+        const char *data, int nsamp, double tsamp, struct foldbuf *f) {
 
     /* Find midtime */
     double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
@@ -56,9 +72,11 @@ int fold_8bit_power(struct polyco *pc, int imjd, double fmjd,
         if (ibin<0) { ibin+=f->nbin; }
         if (ibin>=f->nbin) { ibin-=f->nbin; }
         fptr = &f->data[ibin*f->nchan*f->npol];
-        unpack_8bit(dptr, &data[i*f->nchan*f->npol], f->nchan * f->npol);
-        vector_accumulate(fptr, dptr, f->npol * f->nchan);
-        f->count[ibin]++;
+        if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
+            unpack_8bit(dptr, &data[i*f->nchan*f->npol], f->nchan * f->npol);
+            vector_accumulate(fptr, dptr, f->npol * f->nchan);
+            f->count[ibin]++;
+        }
         phase += dphase;
         if (phase>1.0) { phase -= 1.0; }
     }
@@ -82,7 +100,7 @@ int normalize_transpose_folds(float *out, struct foldbuf *f) {
     int ibin, ii;
     for (ibin=0; ibin<f->nbin; ibin++) {
         for (ii=0; ii<f->nchan*f->npol; ii++) {
-            out[ibin + ii*f->nchan*f->npol] =
+            out[ibin + ii*f->nbin] =
                 f->data[ii + ibin*f->nchan*f->npol] / (float)f->count[ibin];
         }
     }
