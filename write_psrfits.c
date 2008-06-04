@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "write_psrfits.h"
+#include "psrfits.h"
 
 // Define different obs modes
 static const int search=1, fold=2;
