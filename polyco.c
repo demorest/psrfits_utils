@@ -86,8 +86,10 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
 int select_pc(const struct polyco *pc, int npc, const char *psr,
         int imjd, double fmjd) {
     int ipc;
+    char *tmp = psr;
+    if (tmp[0]=='J' || tmp[0]=='B') tmp++;
     for (ipc=0; ipc<npc; ipc++) {
-        if (psr!=NULL) { if (strcmp(pc[ipc].psr,&psr[1])!=0) { continue; } }
+        if (psr!=NULL) { if (strcmp(pc[ipc].psr,psr)!=0) { continue; } }
         if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break; }
     }
     if (ipc<npc) { return(ipc); }
