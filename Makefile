@@ -1,8 +1,8 @@
 CFLAGS = -g -O3 -Wall -I/users/sransom/64bit/include
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
-	test_udp_recv test_psrfits
+	test_udp_recv test_psrfits test_psrfits_read fold_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
-        guppi_params.o guppi_time.o write_psrfits.o \
+        guppi_params.o guppi_time.o write_psrfits.o read_psrfits.o \
 	fold.o polyco.o hget.o hput.o sla.o
 THREAD_PROGS = test_net_thread guppi_daq test_fold_thread
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
