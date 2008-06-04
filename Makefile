@@ -11,11 +11,15 @@ THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
 LIBS = -L/users/sransom/64bit/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS)
 clean:
-	rm -f $(PROGS) $(THREAD_PROGS) *~ *.o test_psrfits_0*.fits
+	rm -f $(PROGS) $(THREAD_PROGS) psrfits.tgz *~ *.o test_psrfits_0*.fits
 INSTALL_DIR = ../bin
 install: $(PROGS) $(THREAD_PROGS)
 	mkdir -p $(INSTALL_DIR) && \
 	cp -f -p $(PROGS) $(THREAD_PROGS) $(INSTALL_DIR)
+psrfits.tgz: psrfits.h read_psrfits.c write_psrfits.c polyco.c polyco.h \
+	guppi_PSRFITS_v3.4_fold_template.txt \
+	guppi_PSRFITS_v3.4_search_template.txt
+	tar cvzf $@ $^
 .SECONDEXPANSION:
 $(PROGS): $$@.c $(OBJS)
 	$(CC) $(CFLAGS) $< -o $@ $(OBJS) $(LIBS)
