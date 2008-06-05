@@ -25,13 +25,15 @@ struct fold_args {
     char *data;
     int nsamp;
     double tsamp;
+    int raw_signed;
     struct foldbuf *fb;
 };
 
 void *fold_8bit_power_thread(void *_args);
 
 int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
-        const char *data, int nsamp, double tsamp, struct foldbuf *f);
+        const char *data, int nsamp, double tsamp, int raw_signed,
+        struct foldbuf *f);
 
 int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f);
 

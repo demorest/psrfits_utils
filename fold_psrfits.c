@@ -30,6 +30,7 @@ void usage() {
             "  -i nn, --initial=nn      Starting input file number\n"
             "  -f nn, --final=nn        Ending input file number\n"
             "  -s src, --src=src        Override source name from file\n"
+            "  -u, --unsigned           Raw data is unsigned\n"
             "  -q, --quiet              No progress indicator\n"
           );
 }
@@ -45,17 +46,18 @@ int main(int argc, char *argv[]) {
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
         {"source",  1, NULL, 's'},
+        {"unsigned",0, NULL, 'u'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
         {0,0,0,0}
     };
     int opt, opti;
     int nbin=256, nthread=4, fnum_start=1, fnum_end=0;
-    int quiet=0;
+    int quiet=0, raw_signed=1;
     double tfold = 60.0; 
     char output_base[256] = "fold_out";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:qh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:uqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -79,6 +81,9 @@ int main(int argc, char *argv[]) {
             case 's':
                 strncpy(source, optarg, 24);
                 source[23]='\0';
+                break;
+            case 'u':
+                raw_signed=0;
                 break;
             case 'q':
                 quiet=1;
@@ -199,6 +204,7 @@ int main(int argc, char *argv[]) {
         fargs[i].fb->npol = pf.hdr.npol;
         fargs[i].nsamp = pf.hdr.nsblk;
         fargs[i].tsamp = pf.hdr.dt;
+        fargs[i].raw_signed=raw_signed;
         malloc_foldbuf(fargs[i].fb);
         clear_foldbuf(fargs[i].fb);
     }

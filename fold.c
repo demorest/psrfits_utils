@@ -39,15 +39,21 @@ static void unpack_8bit(float *out, const char *in, int n) {
     for (i=0; i<n; i++) { out[i] = (float)in[i]; }
 }
 
+static void unpack_8bit_unsigned(float *out, const unsigned char *in, int n) {
+    int i;
+    for (i=0; i<n; i++) { out[i] = (float)in[i]; }
+}
+
 void *fold_8bit_power_thread(void *_args) {
     struct fold_args *args = (struct fold_args *)_args;
     int rv = fold_8bit_power(args->pc, args->imjd, args->fmjd, args->data,
-            args->nsamp, args->tsamp, args->fb);
+            args->nsamp, args->tsamp, args->raw_signed, args->fb);
     pthread_exit(&rv);
 }
 
 int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
-        const char *data, int nsamp, double tsamp, struct foldbuf *f) {
+        const char *data, int nsamp, double tsamp, int raw_signed,
+        struct foldbuf *f) {
 
     /* Find midtime */
     double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
@@ -73,7 +79,12 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         if (ibin>=f->nbin) { ibin-=f->nbin; }
         fptr = &f->data[ibin*f->nchan*f->npol];
         if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
-            unpack_8bit(dptr, &data[i*f->nchan*f->npol], f->nchan * f->npol);
+            if (raw_signed)
+                unpack_8bit(dptr, &data[i*f->nchan*f->npol], f->nchan*f->npol);
+            else
+                unpack_8bit_unsigned(dptr, 
+                        (unsigned char *)&data[i*f->nchan*f->npol], 
+                        f->nchan*f->npol);
             vector_accumulate(fptr, dptr, f->npol * f->nchan);
             f->count[ibin]++;
         }
