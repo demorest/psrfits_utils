@@ -106,6 +106,69 @@ void vector_accumulate_8bit(float *out, const char *in, int n) {
 #endif
 }
 
+void vector_accumulate_8bit_unsigned(float *out, 
+        const unsigned char *in, int n) {
+#ifdef FOLD_USE_INTRINSICS
+    __m128 in_, out_, tmp_;
+    float ftmp;
+    int ii;
+    for (ii = 0 ; ii < (n & -16) ; ii += 16) {
+        __builtin_prefetch(out + 64, 1, 0);
+        __builtin_prefetch(in  + 64, 0, 0);
+
+        out_ = _MM_LOAD_PS(out);
+        in_ = _mm_cvtpu8_ps(*((__m64 *)in));
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        out_ = _MM_LOAD_PS(out);
+        in_ = _mm_cvtpu8_ps(*((__m64 *)in));
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        out_ = _MM_LOAD_PS(out);
+        in_ = _mm_cvtpu8_ps(*((__m64 *)in));
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        out_ = _MM_LOAD_PS(out);
+        in_ = _mm_cvtpu8_ps(*((__m64 *)in));
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+    }
+    for (; ii < (n & -4) ; ii += 4) {
+        out_ = _MM_LOAD_PS(out);
+        in_ = _mm_cvtpu8_ps(*((__m64 *)in));
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+    }
+    for (; ii < n ; ii++) {  // Cast these without intrinsics
+        ftmp = (float)(*in);
+        out_ = _mm_load_ss(out);
+        in_ = _mm_load_ss(&ftmp);
+        tmp_ = _mm_add_ss(out_, in_);
+        _mm_store_ss(out, tmp_);
+        in  += 1;
+        out += 1;
+    }
+    _mm_empty();
+#else
+    int i;
+    for (i=0; i<n; i++) { out[i] += (float)in[i]; }
+#endif
+}
+
+
 void vector_accumulate(float *out, const float *in, int n) {
 #ifdef FOLD_USE_INTRINSICS
     __m128 in_, out_, tmp_;
@@ -228,14 +291,13 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         fptr = &f->data[ibin*f->nchan*f->npol];
         if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
             if (raw_signed)
-                vector_accumulate_8bit(fptr, &data[i*f->nchan*f->npol],
+                vector_accumulate_8bit(fptr, 
+                        &data[i*f->nchan*f->npol],
                         f->nchan*f->npol);
-            else {
-                unpack_8bit_unsigned(dptr, 
-                        (unsigned char *)&data[i*f->nchan*f->npol], 
+            else 
+                vector_accumulate_8bit_unsigned(fptr, 
+                        (unsigned char *)&data[i*f->nchan*f->npol],
                         f->nchan*f->npol);
-                vector_accumulate(fptr, dptr, f->npol * f->nchan);
-            }
             f->count[ibin]++;
         }
         phase += dphase;
