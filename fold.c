@@ -99,6 +99,7 @@ void vector_accumulate_8bit(float *out, const char *in, int n) {
         in  += 1;
         out += 1;
     }
+    _mm_empty();
 #else
     int i;
     for (i=0; i<n; i++) { out[i] += (float)in[i]; }
@@ -157,6 +158,7 @@ void vector_accumulate(float *out, const float *in, int n) {
         in  += 1;
         out += 1;
     }
+    _mm_empty();
 #else
     int i;
     for (i=0; i<n; i++) { out[i] += in[i]; }
@@ -210,14 +212,12 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     int i, ibin;
     float *fptr, *dptr;
 #ifdef FOLD_USE_INTRINSICS
-#if 0
     int rv = posix_memalign((void *)&dptr, 64, 
             sizeof(float) * f->npol * f->nchan);
     if (rv) { 
         fprintf(stderr, "Error in posix_memalign");
         exit(1);
     }
-#endif
 #else
     dptr = (float *)malloc(sizeof(float)*f->nchan*f->npol); 
 #endif
@@ -227,18 +227,15 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         if (ibin>=f->nbin) { ibin-=f->nbin; }
         fptr = &f->data[ibin*f->nchan*f->npol];
         if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
-#ifdef FOLD_USE_INTRINSICS
-            vector_accumulate_8bit(fptr, &data[i*f->nchan*f->npol],
-                    f->nchan*f->npol);
-#else
             if (raw_signed)
-                unpack_8bit(dptr, &data[i*f->nchan*f->npol], f->nchan*f->npol);
-            else
+                vector_accumulate_8bit(fptr, &data[i*f->nchan*f->npol],
+                        f->nchan*f->npol);
+            else {
                 unpack_8bit_unsigned(dptr, 
                         (unsigned char *)&data[i*f->nchan*f->npol], 
                         f->nchan*f->npol);
-            vector_accumulate(fptr, dptr, f->npol * f->nchan);
-#endif
+                vector_accumulate(fptr, dptr, f->npol * f->nchan);
+            }
             f->count[ibin]++;
         }
         phase += dphase;
