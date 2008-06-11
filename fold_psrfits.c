@@ -252,7 +252,8 @@ int main(int argc, char *argv[]) {
         offs1 = pf.sub.offs + 0.5*pf.sub.tsubint;
 
         /* Select polyco set */
-        ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
+        //ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
+        ipc = select_pc(pc, npc, NULL, imjd, fmjd);
         if (ipc<0) { 
             fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
                     pf_out.hdr.source, imjd, fmjd);

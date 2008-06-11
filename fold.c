@@ -15,7 +15,14 @@
 
 void malloc_foldbuf(struct foldbuf *f) {
 #ifdef FOLD_USE_INTRINSICS
-    int rv = posix_memalign((void *)&f->data, 64, 
+    const int alignment = 64;
+    if ((f->npol * f->nchan * sizeof(float)) % alignment) {
+        fprintf(stderr, 
+                "Error: foldbuf dimension are not appropriate for alignment:\n"
+                "  npol=%d nchan=%d\n", f->npol, f->nchan);
+        exit(1);
+    }
+    int rv = posix_memalign((void *)&f->data, alignment, 
             sizeof(float) * f->nbin * f->npol * f->nchan);
     if (rv) { 
         fprintf(stderr, "Error in posix_memalign");
@@ -141,7 +148,16 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     /* Fold em */
     int i, ibin;
     float *fptr, *dptr;
-    dptr = (float *)malloc(sizeof(float)*f->nchan*f->npol); // XXX align!
+#ifdef FOLD_USE_INTRINSICS
+    int rv = posix_memalign((void *)&dptr, 64, 
+            sizeof(float) * f->npol * f->nchan);
+    if (rv) { 
+        fprintf(stderr, "Error in posix_memalign");
+        exit(1);
+    }
+#else
+    dptr = (float *)malloc(sizeof(float)*f->nchan*f->npol); 
+#endif
     for (i=0; i<nsamp; i++) {
         ibin = (int)(phase * (double)f->nbin);
         if (ibin<0) { ibin+=f->nbin; }
