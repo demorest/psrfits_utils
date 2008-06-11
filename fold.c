@@ -37,7 +37,7 @@ void clear_foldbuf(struct foldbuf *f) {
     memset(f->count, 0, sizeof(float) * f->nbin);
 }
 
-static void vector_accumulate(float *out, const float *in, int n) {
+void vector_accumulate(float *out, const float *in, int n) {
 #ifdef FOLD_USE_INTRINSICS
     __m128 in_, out_, tmp_;
     int ii;
@@ -95,7 +95,7 @@ static void vector_accumulate(float *out, const float *in, int n) {
 #endif
 }
 
-static int zero_check(const char *dat, int len) {
+int zero_check(const char *dat, int len) {
     int i, z=1;
     for (i=0; i<len; i++) { 
         if (dat[i]!='\0') { z=0; break; }
@@ -103,12 +103,12 @@ static int zero_check(const char *dat, int len) {
     return(z);
 }
 
-static void unpack_8bit(float *out, const char *in, int n) {
+void unpack_8bit(float *out, const char *in, int n) {
     int i;
     for (i=0; i<n; i++) { out[i] = (float)in[i]; }
 }
 
-static void unpack_8bit_unsigned(float *out, const unsigned char *in, int n) {
+void unpack_8bit_unsigned(float *out, const unsigned char *in, int n) {
     int i;
     for (i=0; i<n; i++) { out[i] = (float)in[i]; }
 }
