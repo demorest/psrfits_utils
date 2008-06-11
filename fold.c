@@ -1,13 +1,29 @@
 /* Simple fold routines */
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 #include <pthread.h>
+
+#ifdef FOLD_USE_INTRINSICS
+#  include <xmmintrin.h>
+#  define _MM_LOAD_PS  _mm_load_ps
+#  define _MM_STORE_PS  _mm_store_ps
+#endif
+
 #include "fold.h"
 #include "polyco.h"
 
 void malloc_foldbuf(struct foldbuf *f) {
-    // XXX align!
+#ifdef FOLD_USE_INTRINSICS
+    int rv = posix_memalign((void *)&f->data, 64, 
+            sizeof(float) * f->nbin * f->npol * f->nchan);
+    if (rv) { 
+        fprintf(stderr, "Error in posix_memalign");
+        exit(1);
+    }
+#else
     f->data = (float *)malloc(sizeof(float) * f->nbin * f->npol * f->nchan);
+#endif
     f->count = (unsigned *)malloc(sizeof(unsigned) * f->nbin);
 }
 
@@ -22,8 +38,61 @@ void clear_foldbuf(struct foldbuf *f) {
 }
 
 static void vector_accumulate(float *out, const float *in, int n) {
+#ifdef FOLD_USE_INTRINSICS
+    __m128 in_, out_, tmp_;
+    int ii;
+    for (ii = 0 ; ii < (n & -16) ; ii += 16) {
+        __builtin_prefetch(out + 64, 1, 0);
+        __builtin_prefetch(in  + 64, 0, 0);
+
+        in_  = _MM_LOAD_PS(in);
+        out_ = _MM_LOAD_PS(out);
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        in_  = _MM_LOAD_PS(in);
+        out_ = _MM_LOAD_PS(out);
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        in_  = _MM_LOAD_PS(in);
+        out_ = _MM_LOAD_PS(out);
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+
+        in_  = _MM_LOAD_PS(in);
+        out_ = _MM_LOAD_PS(out);
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+    }
+    for (; ii < (n & -4) ; ii += 4) {
+        in_  = _MM_LOAD_PS(in);
+        out_ = _MM_LOAD_PS(out);
+        tmp_ = _mm_add_ps(out_, in_);
+        _MM_STORE_PS(out, tmp_);
+        in  += 4;
+        out += 4;
+    }
+    for (; ii < n ; ii++) {
+        in_  = _mm_load_ss(in);
+        out_ = _mm_load_ss(out);
+        tmp_ = _mm_add_ss(out_, in_);
+        _mm_store_ss(out, tmp_);
+        in  += 1;
+        out += 1;
+    }
+#else
     int i;
     for (i=0; i<n; i++) { out[i] += in[i]; }
+#endif
 }
 
 static int zero_check(const char *dat, int len) {

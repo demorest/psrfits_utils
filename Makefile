@@ -1,4 +1,4 @@
-CFLAGS = -g -O3 -Wall -I/users/sransom/64bit/include
+CFLAGS = -g -O3 -Wall -DFOLD_USE_INTRINSICS -I/users/sransom/64bit/include
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
 	test_udp_recv test_psrfits test_psrfits_read fold_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
