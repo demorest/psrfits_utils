@@ -23,13 +23,14 @@ void usage() {
             "Usage: fold_psrfits [options] input_filename_base\n"
             "Options:\n"
             "  -h, --help               Print this\n"
-            "  -o name, --output=name   Output base filename\n"
+            "  -o name, --output=name   Output base filename (fold_out)\n"
             "  -b nn, --nbin=nn         Number of profile bins (256)\n"
             "  -t nn, --tsub=n          Folded subintegration time, sec (60)\n"
             "  -j nn, --nthread=nn      Max number of threads (4)\n"
-            "  -i nn, --initial=nn      Starting input file number\n"
-            "  -f nn, --final=nn        Ending input file number\n"
+            "  -i nn, --initial=nn      Starting input file number (1)\n"
+            "  -f nn, --final=nn        Ending input file number (auto)\n"
             "  -s src, --src=src        Override source name from file\n"
+            "  -p file, --polyco=file   Polyco file to use (polyco.dat)\n"
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -q, --quiet              No progress indicator\n"
           );
@@ -45,7 +46,8 @@ int main(int argc, char *argv[]) {
         {"nthread", 1, NULL, 'j'},
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
-        {"source",  1, NULL, 's'},
+        {"src",     1, NULL, 's'},
+        {"polyco",  1, NULL, 'p'},
         {"unsigned",0, NULL, 'u'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
@@ -56,8 +58,9 @@ int main(int argc, char *argv[]) {
     int quiet=0, raw_signed=1;
     double tfold = 60.0; 
     char output_base[256] = "fold_out";
+    char polyco_file[256] = "polyco.dat";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:uqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:uqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -81,6 +84,10 @@ int main(int argc, char *argv[]) {
             case 's':
                 strncpy(source, optarg, 24);
                 source[23]='\0';
+                break;
+            case 'p':
+                strncpy(polyco_file, optarg, 255);
+                polyco_file[255]='\0';
                 break;
             case 'u':
                 raw_signed=0;
@@ -159,7 +166,7 @@ int main(int argc, char *argv[]) {
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
 
     /* Read polycos */
-    FILE *pcfile = fopen("polyco.dat", "r");
+    FILE *pcfile = fopen(polyco_file, "r");
     if (pcfile==NULL) { 
         fprintf(stderr, "Couldn't open polyco file.\n");
         exit(1);
@@ -252,8 +259,8 @@ int main(int argc, char *argv[]) {
         offs1 = pf.sub.offs + 0.5*pf.sub.tsubint;
 
         /* Select polyco set */
-        //ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
-        ipc = select_pc(pc, npc, NULL, imjd, fmjd);
+        ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
+        //ipc = select_pc(pc, npc, NULL, imjd, fmjd);
         if (ipc<0) { 
             fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
                     pf_out.hdr.source, imjd, fmjd);
