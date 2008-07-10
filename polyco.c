@@ -23,7 +23,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     if ((rv=strchr(pc->psr, ' '))!=NULL) { *rv='\0'; }
     rv = fgets(buf,90,f);
     if (rv==NULL) { return(-1); }
-    pc->rphase = atof(&buf[0]);
+    pc->rphase = fmod(atof(&buf[0]),1.0);
     pc->f0 = atof(&buf[20]);
     pc->nsite = atoi(&buf[42]);
     pc->nmin = atoi(&buf[43]);
@@ -60,7 +60,7 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
         pc->fmjd = atof(&buf[39]);
         if ((rv=strchr(pc->psr, ' '))!=NULL) { *rv='\0'; }
         rv = fgets(buf,90,f);
-        pc->rphase = atof(&buf[0]);
+        pc->rphase = fmod(atof(&buf[0]),1.0);
         pc->f0 = atof(&buf[20]);
         pc->nsite = atoi(&buf[42]);
         pc->nmin = atoi(&buf[43]);
