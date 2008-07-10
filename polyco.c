@@ -10,7 +10,7 @@
 
 int read_one_pc(FILE *f, struct polyco *pc) {
 
-    int i;
+    int i, j;
     char *rv;
     int ret;
     char buf[90];
@@ -32,6 +32,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
         rv=fgets(buf, 90, f);
         if (rv==NULL) { return(-1); }
+        for (j=0; j<90; j++) { if (buf[j]=='D' || buf[j]=='d') buf[j]='e'; }
         ret=sscanf(buf, "%lf %lf %lf", 
                 &(pc->c[3*i]), &(pc->c[3*i+1]), &(pc->c[3*i+2]));
         if (ret!=3) { return(-1); }
@@ -45,7 +46,7 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
 
     /* Read through until we get to right psr, mjd */
     int done=0, nomatch=0;
-    int i;
+    int i, j;
     char *rv;
     int ret;
     char buf[90];
@@ -67,6 +68,8 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
         pc->rf = atof(&buf[55]);
         for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
             rv=fgets(buf, 90, f);
+            if (rv==NULL) { return(-1); }
+            for (j=0; j<90; j++) { if (buf[j]=='D' || buf[j]=='d') buf[j]='e'; }
             ret=sscanf(buf, "%lf %lf %lf", 
                     &(pc->c[3*i]), &(pc->c[3*i+1]), &(pc->c[3*i+2]));
             if (ret!=3) { return(-1); }
