@@ -23,7 +23,7 @@ BE_PHASE= 0                    / 0/+1/-1 BE cross-phase:0 unknown,+/-1 std/rev
 BE_DCC  = 0                    / 0/1 BE downconversion conjugation corrected
 BE_DELAY= 0.0                  / [s] Backend propn delay from digitiser input 
 TCYCLE  = 0.0                  / [s] On-line cycle time (D)
-OBS_MODE= 'FOLD'               / (PSR, CAL, SEARCH)
+OBS_MODE= 'PSR'                / (PSR, CAL, SEARCH)
 DATE-OBS= '                '   / Date of observation (YYYY-MM-DDThh:mm:ss UTC)
 OBSFREQ =                    * / [MHz] Centre frequency for observation
 OBSBW   =                    * / [MHz] Bandwidth for observation
@@ -62,46 +62,46 @@ END
 #
 # Note: only the basic params are listed here, more will be added
 # by the writing software as needed.
-XTENSION= BINTABLE             / ***** Pulsar ephemeris history *****
-BITPIX  =                    8 / N/A
-NAXIS   =                    2 / 2-dimensional binary table
-NAXIS1  =                    * / width of table in bytes
-NAXIS2  =                    * / number of rows in table
-PCOUNT  =                    0 / size of special data area
-GCOUNT  =                    1 / one data group (required keyword)
-TFIELDS =                    * / number of fields per row
-EXTNAME = PSREPHEM             / name of this binary table extension
-TTYPE#  = DATE_PRO             / Processing date and time (UTC)
-TFORM#  = 24A                  / 24-char string
-TTYPE#  = PROC_CMD             / Processing program and command
-TFORM#  = 80A                  / 80-char string
-TTYPE#  = EPHVER               / Version ID for ephemeris data
-TFORM#  = 16A                  / 16-char string
-TTYPE#  = PSR_NAME             / Pulsar Jname
-TFORM#  = 16A                  / 16-char string
-TTYPE#  = RAJ                  / RA (J2000) (hh:mm:ss.ssssssss)
-TFORM#  = 24A                  / 24-char string
-TTYPE#  = DECJ                 / Dec (J2000) (hh:mm:ss.ssssssss)
-TFORM#  = 24A                  / 24-char string
-TTYPE#  = IF0                  / Integer mHz barycentric spin freq
-TFORM#  = 1J                   / Long integer
-TUNIT#  = mHz                  / Units of field
-TTYPE#  = FF0                  / Fractional mHz barycentric spin freq
-TFORM#  = 1D                   / Double
-TUNIT#  = mHz                  / Units of field
-TTYPE#  = F1                   / Time deriv of barycentric spin freq
-TFORM#  = 1D                   / Double
-TUNIT#  = s**(-2)              / Units of field
-TTYPE#  = F2                   / 2nd time deriv of barycentric spin freq
-TFORM#  = 1D                   / Double
-TUNIT#  = s**(-3)              / Units of field
-TTYPE#  = PEPOCH               / Epoch of period/frequency determination
-TFORM#  = 1D                   / Double
-TUNIT#  = MJD                  / Units of field
-TTYPE#  = DM                   / Dispersion measure
-TFORM#  = 1D                   / Double
-TUNIT#  = cm**(-3) pc          / Units of field
-END
+#XTENSION= BINTABLE             / ***** Pulsar ephemeris history *****
+#BITPIX  =                    8 / N/A
+#NAXIS   =                    2 / 2-dimensional binary table
+#NAXIS1  =                    * / width of table in bytes
+#NAXIS2  =                    * / number of rows in table
+#PCOUNT  =                    0 / size of special data area
+#GCOUNT  =                    1 / one data group (required keyword)
+#TFIELDS =                    * / number of fields per row
+#EXTNAME = PSREPHEM             / name of this binary table extension
+#TTYPE#  = DATE_PRO             / Processing date and time (UTC)
+#TFORM#  = 24A                  / 24-char string
+#TTYPE#  = PROC_CMD             / Processing program and command
+#TFORM#  = 80A                  / 80-char string
+#TTYPE#  = EPHVER               / Version ID for ephemeris data
+#TFORM#  = 16A                  / 16-char string
+#TTYPE#  = PSR_NAME             / Pulsar Jname
+#TFORM#  = 16A                  / 16-char string
+#TTYPE#  = RAJ                  / RA (J2000) (hh:mm:ss.ssssssss)
+#TFORM#  = 24A                  / 24-char string
+#TTYPE#  = DECJ                 / Dec (J2000) (hh:mm:ss.ssssssss)
+#TFORM#  = 24A                  / 24-char string
+#TTYPE#  = IF0                  / Integer mHz barycentric spin freq
+#TFORM#  = 1J                   / Long integer
+#TUNIT#  = mHz                  / Units of field
+#TTYPE#  = FF0                  / Fractional mHz barycentric spin freq
+#TFORM#  = 1D                   / Double
+#TUNIT#  = mHz                  / Units of field
+#TTYPE#  = F1                   / Time deriv of barycentric spin freq
+#TFORM#  = 1D                   / Double
+#TUNIT#  = s**(-2)              / Units of field
+#TTYPE#  = F2                   / 2nd time deriv of barycentric spin freq
+#TFORM#  = 1D                   / Double
+#TUNIT#  = s**(-3)              / Units of field
+#TTYPE#  = PEPOCH               / Epoch of period/frequency determination
+#TFORM#  = 1D                   / Double
+#TUNIT#  = MJD                  / Units of field
+#TTYPE#  = DM                   / Dispersion measure
+#TFORM#  = 1D                   / Double
+#TUNIT#  = cm**(-3) pc          / Units of field
+#END
 #
 ###############################################################################
 #

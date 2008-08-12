@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "write_psrfits.h"
+#include "psrfits.h"
 #include "slalib.h"
 
 #ifndef DEGTORAD

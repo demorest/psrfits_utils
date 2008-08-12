@@ -1,13 +1,16 @@
+/* write_psrfits.c */
 #include <stdio.h>
 #include <string.h>
-#include "write_psrfits.h"
+#include "psrfits.h"
+#include "polyco.h"
 
 // Define different obs modes
-static const int search=1, fold=2;
+static const int search=SEARCH_MODE, fold=FOLD_MODE;
 int psrfits_obs_mode(const char *obs_mode) {
-    if (strcmp("SEARCH", obs_mode)==0) { return(search); }
-    else if (strcmp("FOLD", obs_mode)==0) { return(fold); }
-    else if (strcmp("CAL", obs_mode)==0) { return(fold); }
+    if (strncmp("SEARCH", obs_mode, 6)==0) { return(search); }
+    else if (strncmp("FOLD", obs_mode, 4)==0) { return(fold); }
+    else if (strncmp("PSR", obs_mode, 3)==0) { return(fold); }
+    else if (strncmp("CAL", obs_mode, 3)==0) { return(fold); }
     else {
         // TODO: what to do here? default to search for now
         printf("Warning: obs_mode '%s' not recognized, defaulting to SEARCH.\n",
@@ -48,11 +51,13 @@ int psrfits_create(struct psrfits *pf) {
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
-    printf("Opening file '%s'\n", pf->filename);
+    printf("Opening file '%s' ", pf->filename);
     if (mode==search) { 
+        printf("in search mode.\n");
         fits_create_template(&(pf->fptr), pf->filename, 
                 PSRFITS_SEARCH_TEMPLATE, status);
     } else if (mode==fold) { 
+        printf("in fold mode.\n");
         fits_create_template(&(pf->fptr), pf->filename, 
                 PSRFITS_FOLD_TEMPLATE, status);
     }
@@ -64,9 +69,11 @@ int psrfits_create(struct psrfits *pf) {
     fits_get_system_time(ctmp, &itmp, status);
     // Note:  this is the date the file was _written_, not the obs start date
     fits_update_key(pf->fptr, TSTRING, "DATE", ctmp, NULL, status);
+    fits_update_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope,NULL, status);
     fits_update_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
+    fits_update_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
     if (hdr->summed_polns) {
         if (hdr->npol > 1) {
             printf("Warning!:  Can't have %d polarizations _and_ be summed!\n", 
@@ -142,12 +149,16 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
     if (mode==search) {
+        itmp = 1;
         fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
         fits_update_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+        fits_update_key(pf->fptr, TINT, "NBIN", &itmp, NULL, status);
     } else if (mode==fold) {
         itmp = 1;
         fits_update_key(pf->fptr, TINT, "NSBLK", &itmp, NULL, status);
         fits_update_key(pf->fptr, TINT, "NBITS", &itmp, NULL, status);
+        fits_update_key(pf->fptr, TINT, "NBIN", &(hdr->nbin), NULL, status);
+        fits_update_key(pf->fptr, TSTRING, "EPOCHS", "MIDTIME", NULL, status);
     }
 
     // Update the column sizes for the colums containing arrays
@@ -169,6 +180,8 @@ int psrfits_create(struct psrfits *pf) {
     else if (mode==fold) 
         sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, hdr->nchan, hdr->npol);
     fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
+
+    fits_flush_file(pf->fptr, status);
     
     return *status;
 }
@@ -198,7 +211,6 @@ int psrfits_write_subint(struct psrfits *pf) {
 
     row = pf->rownum;
     fits_write_col(pf->fptr, TDOUBLE, 1, row, 1, 1, &(sub->tsubint), status);
-    sub->offs = (pf->tot_rows + 0.5) * sub->tsubint;
     fits_write_col(pf->fptr, TDOUBLE, 2, row, 1, 1, &(sub->offs), status);
     fits_write_col(pf->fptr, TDOUBLE, 3, row, 1, 1, &(sub->lst), status);
     fits_write_col(pf->fptr, TDOUBLE, 4, row, 1, 1, &(sub->ra), status);
@@ -251,6 +263,85 @@ int psrfits_write_subint(struct psrfits *pf) {
     return *status;
 }
 
+int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
+
+    // Usual setup
+    int *status = &(pf->status);
+
+    // If mode!=fold, exit?
+
+    // Save current HDU, move to polyco table
+    int hdu;
+    fits_get_hdu_num(pf->fptr, &hdu);
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "POLYCO", 0, status);
+
+    int itmp;
+    double dtmp;
+    char datestr[32], ctmp[32];
+    char *cptr;
+    fits_get_system_time(datestr, &itmp, status);
+    int i, row, col; 
+    // XXX start at end of table?
+    for (i=0; i<npc; i++) {
+
+        row = i+1;
+
+        cptr = datestr;
+        fits_get_colnum(pf->fptr,CASEINSEN,"DATE_PRO",&col,status);
+        fits_write_col(pf->fptr,TSTRING,col,row,1,1,&cptr,status);
+
+        sprintf(ctmp, "11.005"); // Tempo version?
+        cptr = ctmp;
+        fits_get_colnum(pf->fptr,CASEINSEN,"POLYVER",&col,status);
+        fits_write_col(pf->fptr,TSTRING,col,row,1,1,&cptr,status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"NSPAN",&col,status);
+        fits_write_col(pf->fptr,TINT,col,row,1,1,&(pc[i].nmin),status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"NCOEF",&col,status);
+        fits_write_col(pf->fptr,TINT,col,row,1,1,&(pc[i].nc),status);
+
+        itmp = npc;
+        fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
+        fits_write_col(pf->fptr,TINT,col,row,1,1,&itmp,status);
+
+        sprintf(ctmp,"%d", pc[i].nsite); // XXX convert to letter?
+        cptr = ctmp;
+        fits_get_colnum(pf->fptr,CASEINSEN,"NSITE",&col,status);
+        fits_write_col(pf->fptr,TSTRING,col,row,1,1,&cptr,status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"REF_FREQ",&col,status);
+        fits_write_col(pf->fptr,TFLOAT,col,row,1,1,&(pc[i].rf),status);
+
+        // XXX needs to be accurate??
+        dtmp=0.0;
+        fits_get_colnum(pf->fptr,CASEINSEN,"PRED_PHS",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dtmp,status);
+
+        dtmp = (double)pc[i].mjd + pc[i].fmjd;
+        fits_get_colnum(pf->fptr,CASEINSEN,"REF_MJD",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dtmp,status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"REF_PHS",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&(pc[i].rphase),status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"REF_F0",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&(pc[i].f0),status);
+
+        // XXX don't parse this yet
+        dtmp=-6.0;
+        fits_get_colnum(pf->fptr,CASEINSEN,"LGFITERR",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dtmp,status);
+
+        fits_get_colnum(pf->fptr,CASEINSEN,"COEFF",&col,status);
+        fits_write_col(pf->fptr,TDOUBLE,col,row,1,pc[i].nc,pc[i].c,status);
+    }
+
+    // Go back to orig HDU
+    fits_movabs_hdu(pf->fptr, hdu, NULL, status);
+
+    return *status;
+}
 
 int psrfits_close(struct psrfits *pf) {
     if (!pf->status) {

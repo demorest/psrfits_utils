@@ -10,7 +10,7 @@
 
 int read_one_pc(FILE *f, struct polyco *pc) {
 
-    int i;
+    int i, j;
     char *rv;
     int ret;
     char buf[90];
@@ -23,15 +23,16 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     if ((rv=strchr(pc->psr, ' '))!=NULL) { *rv='\0'; }
     rv = fgets(buf,90,f);
     if (rv==NULL) { return(-1); }
-    pc->rphase = atof(&buf[0]);
+    pc->rphase = fmod(atof(&buf[0]),1.0);
     pc->f0 = atof(&buf[20]);
-    pc->nsite = buf[42];
+    pc->nsite = atoi(&buf[42]);
     pc->nmin = atoi(&buf[43]);
     pc->nc = atoi(&buf[50]);
     pc->rf = atof(&buf[55]);
     for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
         rv=fgets(buf, 90, f);
         if (rv==NULL) { return(-1); }
+        for (j=0; j<90; j++) { if (buf[j]=='D' || buf[j]=='d') buf[j]='e'; }
         ret=sscanf(buf, "%lf %lf %lf", 
                 &(pc->c[3*i]), &(pc->c[3*i+1]), &(pc->c[3*i+2]));
         if (ret!=3) { return(-1); }
@@ -45,7 +46,7 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
 
     /* Read through until we get to right psr, mjd */
     int done=0, nomatch=0;
-    int i;
+    int i, j;
     char *rv;
     int ret;
     char buf[90];
@@ -59,14 +60,16 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
         pc->fmjd = atof(&buf[39]);
         if ((rv=strchr(pc->psr, ' '))!=NULL) { *rv='\0'; }
         rv = fgets(buf,90,f);
-        pc->rphase = atof(&buf[0]);
+        pc->rphase = fmod(atof(&buf[0]),1.0);
         pc->f0 = atof(&buf[20]);
-        pc->nsite = buf[42];
+        pc->nsite = atoi(&buf[42]);
         pc->nmin = atoi(&buf[43]);
         pc->nc = atoi(&buf[50]);
         pc->rf = atof(&buf[55]);
         for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
             rv=fgets(buf, 90, f);
+            if (rv==NULL) { return(-1); }
+            for (j=0; j<90; j++) { if (buf[j]=='D' || buf[j]=='d') buf[j]='e'; }
             ret=sscanf(buf, "%lf %lf %lf", 
                     &(pc->c[3*i]), &(pc->c[3*i+1]), &(pc->c[3*i+2]));
             if (ret!=3) { return(-1); }
@@ -83,9 +86,11 @@ int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd) {
 }
 
 /* Select appropriate polyco set */
-int select_pc(struct polyco *pc, int npc, const char *psr,
+int select_pc(const struct polyco *pc, int npc, const char *psr,
         int imjd, double fmjd) {
     int ipc;
+    char *tmp = psr;
+    if (tmp[0]=='J' || tmp[0]=='B') tmp++;
     for (ipc=0; ipc<npc; ipc++) {
         if (psr!=NULL) { if (strcmp(pc[ipc].psr,psr)!=0) { continue; } }
         if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break; }
@@ -95,7 +100,7 @@ int select_pc(struct polyco *pc, int npc, const char *psr,
 }
 
 /* Compute pulsar phase given polyco struct and mjd */
-double psr_phase(struct polyco *pc, int mjd, double fmjd, double *freq) {
+double psr_phase(const struct polyco *pc, int mjd, double fmjd, double *freq) {
     double dt = 1440.0*((double)(mjd-pc->mjd)+(fmjd-pc->fmjd));
     int i;
     double phase = pc->c[pc->nc-1];
@@ -111,7 +116,7 @@ double psr_phase(struct polyco *pc, int mjd, double fmjd, double *freq) {
     return(phase);
 }
 
-double psr_fdot(struct polyco *pc, int mjd, double fmjd, double *fdot) {
+double psr_fdot(const struct polyco *pc, int mjd, double fmjd, double *fdot) {
     double dt = 1440.0*((double)(mjd-pc->mjd)+(fmjd-pc->fmjd));
     if (fabs(dt)>(double)pc->nmin/2.0) { return(-1.0); }
     double fd=0.0;
@@ -124,7 +129,8 @@ double psr_fdot(struct polyco *pc, int mjd, double fmjd, double *fdot) {
     return(fd);
 }
 
-double psr_phase_avg(struct polyco *pc, int mjd, double fmjd1, double fmjd2) {
+double psr_phase_avg(const struct polyco *pc, int mjd, 
+        double fmjd1, double fmjd2) {
     double dt1 = 1440.0*((double)(mjd-pc->mjd)+(fmjd1-pc->fmjd));
     double dt2 = 1440.0*((double)(mjd-pc->mjd)+(fmjd2-pc->fmjd));
     if (fabs(dt1)>(double)pc->nmin/2.0) { return(-1.0); }
@@ -141,7 +147,7 @@ double psr_phase_avg(struct polyco *pc, int mjd, double fmjd1, double fmjd2) {
     return(pavg);
 }
 
-int pc_range_check(struct polyco *pc, int mjd, double fmjd) {
+int pc_range_check(const struct polyco *pc, int mjd, double fmjd) {
     double dt;
     dt = (double)(mjd - pc->mjd) + (fmjd - pc->fmjd);
     dt *= 1440.0;
@@ -150,7 +156,7 @@ int pc_range_check(struct polyco *pc, int mjd, double fmjd) {
     else { return(0); }
 }
 
-int pc_out_of_range(struct polyco *pc, int mjd, double fmjd) {
+int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd) {
     double dt;
     dt = (double)(mjd - pc->mjd) + (fmjd - pc->fmjd);
     dt *= 1440.0;
