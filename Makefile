@@ -1,5 +1,12 @@
-CFLAGS = -g -O3 -Wall -DFOLD_USE_INTRINSICS -I/users/sransom/64bit/include
-#CFLAGS = -g -O3 -Wall -I/users/sransom/64bit/include
+OPT64 = /users/sransom/64bit
+ifeq ($(shell hostname),beef) 
+    OPT64 = /opt/64bit
+endif
+ifeq ($(shell hostname),tofu) 
+    OPT64 = /opt/64bit
+endif
+CFLAGS = -g -O3 -Wall -DFOLD_USE_INTRINSICS -I$(OPT64)/include
+#CFLAGS = -g -O3 -Wall -I$(OPT64)/include
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
 	test_udp_recv test_psrfits test_psrfits_read fold_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
@@ -9,7 +16,7 @@ THREAD_PROGS = test_net_thread guppi_daq test_fold_thread
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
 	       guppi_psrfits_thread.o guppi_fold_thread.o \
 	       guppi_null_thread.o
-LIBS = -L/users/sransom/64bit/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
+LIBS = -L$(OPT64)/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
 all: $(PROGS) $(THREAD_PROGS)
 clean:
 	rm -f $(PROGS) $(THREAD_PROGS) psrfits.tgz *~ *.o test_psrfits_0*.fits

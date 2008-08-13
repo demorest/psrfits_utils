@@ -7,9 +7,10 @@
 // The following is the max file length in GB
 #define PSRFITS_MAXFILELEN 10L
 
-// The following is the template file to use to create a PSRFITS file
-#define PSRFITS_SEARCH_TEMPLATE "/data1/demorest/guppi_daq/src/guppi_PSRFITS_v3.4_search_template.txt"
-#define PSRFITS_FOLD_TEMPLATE "/data1/demorest/guppi_daq/src/guppi_PSRFITS_v3.4_fold_template.txt"
+// The following is the template file to use to create a PSRFITS file.
+// Path is relative to GUPPI_DIR environment variable.
+#define PSRFITS_SEARCH_TEMPLATE "src/guppi_PSRFITS_v3.4_search_template.txt"
+#define PSRFITS_FOLD_TEMPLATE "src/guppi_PSRFITS_v3.4_fold_template.txt"
 
 struct hdrinfo {
     char obs_mode[8];       // Observing mode (SEARCH, PSR, CAL)
