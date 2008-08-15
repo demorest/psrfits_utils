@@ -31,6 +31,7 @@ void usage() {
             "  -f nn, --final=nn        Ending input file number (auto)\n"
             "  -s src, --src=src        Override source name from file\n"
             "  -p file, --polyco=file   Polyco file to use (polyco.dat)\n"
+            "  -F, --foldfreq=nn        Fold at constant freq (Hz)\n"
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -q, --quiet              No progress indicator\n"
           );
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]) {
         {"final",   1, NULL, 'f'},
         {"src",     1, NULL, 's'},
         {"polyco",  1, NULL, 'p'},
+        {"foldfreq",1, NULL, 'F'},
         {"unsigned",0, NULL, 'u'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
@@ -55,12 +57,13 @@ int main(int argc, char *argv[]) {
     };
     int opt, opti;
     int nbin=256, nthread=4, fnum_start=1, fnum_end=0;
-    int quiet=0, raw_signed=1;
+    int quiet=0, raw_signed=1, use_polycos=1;
     double tfold = 60.0; 
+    double fold_frequency=0.0;
     char output_base[256] = "fold_out";
     char polyco_file[256] = "polyco.dat";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:uqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:F:uqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -88,6 +91,11 @@ int main(int argc, char *argv[]) {
             case 'p':
                 strncpy(polyco_file, optarg, 255);
                 polyco_file[255]='\0';
+                use_polycos = 1;
+                break;
+            case 'F':
+                fold_frequency = atof(optarg);
+                use_polycos = 0;
                 break;
             case 'u':
                 raw_signed=0;
@@ -166,24 +174,40 @@ int main(int argc, char *argv[]) {
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
 
     /* Read polycos */
-    FILE *pcfile = fopen(polyco_file, "r");
-    if (pcfile==NULL) { 
-        fprintf(stderr, "Couldn't open polyco file.\n");
-        exit(1);
-    }
     int npc=0, ipc=0;
     struct polyco *pc = NULL;
-    do { 
-        pc = (struct polyco *)realloc(pc, sizeof(struct polyco) * (npc+1));
-        rv = read_one_pc(pcfile, &pc[npc]);
-        npc++;
-    } while (rv==0); 
-    npc--; // Final "read" is really a error or EOF.
-    if (npc==0) {
-        fprintf(stderr, "Error parsing polyco file.\n");
-        exit(1);
+    if (use_polycos) {
+        FILE *pcfile = fopen(polyco_file, "r");
+        if (pcfile==NULL) { 
+            fprintf(stderr, "Couldn't open polyco file.\n");
+            exit(1);
+        }
+        do { 
+            pc = (struct polyco *)realloc(pc, sizeof(struct polyco) * (npc+1));
+            rv = read_one_pc(pcfile, &pc[npc]);
+            npc++;
+        } while (rv==0); 
+        npc--; // Final "read" is really a error or EOF.
+        if (npc==0) {
+            fprintf(stderr, "Error parsing polyco file.\n");
+            exit(1);
+        }
+        fclose(pcfile);
+    } else {
+        // Const fold period mode, generate a fake polyco?
+        pc = (struct polyco *)malloc(sizeof(struct polyco));
+        sprintf(pc[0].psr, "CONST");
+        pc[0].mjd = (int)pf.hdr.MJD_epoch;
+        pc[0].fmjd = fmod(pf.hdr.MJD_epoch,1.0);
+        pc[0].rphase = 0.0;
+        pc[0].f0 = fold_frequency;
+        pc[0].nsite = 0; // Does this matter?
+        pc[0].nmin = 24 * 60;
+        pc[0].nc = 1;
+        pc[0].rf = pf.hdr.fctr;
+        pc[0].c[0] = 0.0;
+        npc = 1;
     }
-    fclose(pcfile);
 
     /* For now, just write all polycos */
     rv = psrfits_write_polycos(&pf_out, pc, npc);
@@ -259,12 +283,16 @@ int main(int argc, char *argv[]) {
         offs1 = pf.sub.offs + 0.5*pf.sub.tsubint;
 
         /* Select polyco set */
-        ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
-        //ipc = select_pc(pc, npc, NULL, imjd, fmjd);
-        if (ipc<0) { 
-            fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
-                    pf_out.hdr.source, imjd, fmjd);
-            break;
+        if (use_polycos) {
+            ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
+            //ipc = select_pc(pc, npc, NULL, imjd, fmjd);
+            if (ipc<0) { 
+                fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
+                        pf_out.hdr.source, imjd, fmjd);
+                break;
+            }
+        } else {
+            ipc = 0;
         }
 
         /* TODO: deal with scale/offset */
