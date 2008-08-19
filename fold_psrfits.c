@@ -31,7 +31,7 @@ void usage() {
             "  -f nn, --final=nn        Ending input file number (auto)\n"
             "  -s src, --src=src        Override source name from file\n"
             "  -p file, --polyco=file   Polyco file to use (polyco.dat)\n"
-            "  -F, --foldfreq=nn        Fold at constant freq (Hz)\n"
+            "  -F nn, --foldfreq=nn     Fold at constant freq (Hz)\n"
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -q, --quiet              No progress indicator\n"
           );
