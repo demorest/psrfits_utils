@@ -1,6 +1,7 @@
 /* write_psrfits.c */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "psrfits.h"
 #include "polyco.h"
 
@@ -51,16 +52,22 @@ int psrfits_create(struct psrfits *pf) {
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
+    char *guppi_dir = getenv("GUPPI_DIR");
+    char template_file[1024];
+    if (guppi_dir==NULL) {
+        fprintf(stderr, 
+                "Error: GUPPI_DIR environment variable not set, exiting.\n");
+        exit(1);
+    }
     printf("Opening file '%s' ", pf->filename);
     if (mode==search) { 
         printf("in search mode.\n");
-        fits_create_template(&(pf->fptr), pf->filename, 
-                PSRFITS_SEARCH_TEMPLATE, status);
+        sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_SEARCH_TEMPLATE);
     } else if (mode==fold) { 
         printf("in fold mode.\n");
-        fits_create_template(&(pf->fptr), pf->filename, 
-                PSRFITS_FOLD_TEMPLATE, status);
+        sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_FOLD_TEMPLATE);
     }
+    fits_create_template(&(pf->fptr), pf->filename, template_file, status);
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
