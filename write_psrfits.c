@@ -350,6 +350,95 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     return *status;
 }
 
+int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
+    // Read a pulsar ephemeris (par file) and put it into
+    // the psrfits PSREPHEM table.  Only minimal checking
+    // is done.
+   
+    // Get status
+    int *status = &(pf->status);
+
+    // Save current HDU, move to psrephem table
+    int hdu;
+    fits_get_hdu_num(pf->fptr, &hdu);
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "PSREPHEM", 0, status);
+
+    // Loop over lines in par file
+    int row=1, col;
+    char line[256], *ptr, *saveptr, *key, *val;
+    while (fgets(line, 256, parfile)!=NULL) {
+
+        // Convert tabs to spaces
+        while ((ptr=strchr(line,'\t'))!=NULL) { *ptr=' '; }
+
+        // strip leading whitespace
+        ptr = line;
+        while (*ptr==' ') { ptr++; }
+
+        // Identify comments or blank lines
+        if (line[0]=='\n' || line[0]=='#' || 
+                (line[0]=='C' && line[1]==' '))
+            continue;
+
+        // Split into key/val (ignore fit flag and error)
+        key = strtok_r(line,  " ", &saveptr);
+        val = strtok_r(NULL, " ", &saveptr);
+        if (key==NULL || val==NULL) continue; // TODO : complain?
+
+        // TODO: Deal with any special cases
+        // F is converted to mHz and split into int/frac
+        // TZRMJD is split into int/frac
+
+        // Write value into appropriate column
+        // Uses cfitsio's automatic data type conversion
+        fits_get_colnum(pf->fptr,CASEINSEN,key,&col,status);
+        fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+    }
+
+    // Go back to orig HDU
+    fits_movabs_hdu(pf->fptr, hdu, NULL, status);
+
+    return *status;
+}
+
+int psrfits_remove_polycos(struct psrfits *pf) {
+    // Delete the polyco table
+    
+    int *status = &(pf->status);
+
+    // Save current HDU, move to polyco table
+    int hdu;
+    fits_get_hdu_num(pf->fptr, &hdu);
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "POLYCO", 0, status);
+
+    // Delete it
+    fits_delete_hdu(pf->fptr, NULL, status);
+
+    // Go to the SUBINT HDU
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
+
+    return *status;
+}
+
+int psrfits_remove_ephem(struct psrfits *pf) {
+    // Delete the polyco table
+    
+    int *status = &(pf->status);
+
+    // Save current HDU, move to polyco table
+    int hdu;
+    fits_get_hdu_num(pf->fptr, &hdu);
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "PSREPHEM", 0, status);
+
+    // Delete it
+    fits_delete_hdu(pf->fptr, NULL, status);
+
+    // Go to the SUBINT HDU
+    fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
+
+    return *status;
+}
+
 int psrfits_close(struct psrfits *pf) {
     if (!pf->status) {
         fits_close_file(pf->fptr, &(pf->status));

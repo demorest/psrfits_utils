@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
         {"final",   1, NULL, 'f'},
         {"src",     1, NULL, 's'},
         {"polyco",  1, NULL, 'p'},
+        {"parfile", 1, NULL, 'P'},
         {"foldfreq",1, NULL, 'F'},
         {"unsigned",0, NULL, 'u'},
         {"quiet",   0, NULL, 'q'},
@@ -62,6 +63,7 @@ int main(int argc, char *argv[]) {
     double fold_frequency=0.0;
     char output_base[256] = "fold_out";
     char polyco_file[256] = "polyco.dat";
+    char par_file[256] = "";
     char source[24];  source[0]='\0';
     while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:F:uqh",long_opts,&opti))!=-1) {
         switch (opt) {
@@ -92,6 +94,10 @@ int main(int argc, char *argv[]) {
                 strncpy(polyco_file, optarg, 255);
                 polyco_file[255]='\0';
                 use_polycos = 1;
+                break;
+            case 'P':
+                strncpy(par_file, optarg, 255);
+                par_file[255] = '\0';
                 break;
             case 'F':
                 fold_frequency = atof(optarg);
@@ -212,6 +218,20 @@ int main(int argc, char *argv[]) {
     /* For now, just write all polycos */
     rv = psrfits_write_polycos(&pf_out, pc, npc);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
+
+    /* Try writing par file to output, else remove ephem table */
+    if (par_file[0]!='\0') {
+        FILE *par = fopen(par_file,"r");
+        if (par==NULL) {
+            fprintf(stderr, "Error opening par file %s\n", par_file);
+            exit(1);
+        }
+        rv = psrfits_write_ephem(&pf_out, par);
+        if (rv) { fits_report_error(stderr, rv); exit(1); }
+    } else {
+        rv = psrfits_remove_ephem(&pf_out);
+        if (rv) { fits_report_error(stderr, rv); exit(1); }
+    }
 
     /* Alloc total fold buf */
     struct foldbuf fb;

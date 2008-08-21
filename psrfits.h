@@ -100,10 +100,13 @@ struct psrfits {
 int psrfits_create(struct psrfits *pf);
 int psrfits_write_subint(struct psrfits *pf);
 int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc);
+int psrfits_write_ephem(struct psrfits *pf, FILE *parfile);
 int psrfits_close(struct psrfits *pf);
 #define SEARCH_MODE 1
 #define FOLD_MODE 2
 int psrfits_obs_mode(const char *obs_mode);
+int psrfits_remove_polycos(struct psrfits *pf);
+int psrfits_remove_ephem(struct psrfits *pf);
 
 // In read_psrfits.c
 int psrfits_open(struct psrfits *pf);
