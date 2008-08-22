@@ -1,7 +1,9 @@
 /* write_psrfits.c */
+#define _ISOC99_SOURCE  // For long double strtold
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "psrfits.h"
 #include "polyco.h"
 
@@ -367,8 +369,8 @@ int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
     int row=1, col, dtype;
     double dval;
     int ival;
-    char line[256], *ptr, *saveptr, *keytmp, *val, key[9];
-    key[8]='\0';
+    long double ldval;
+    char line[256], *ptr, *saveptr, *key, *val;
     while (fgets(line, 256, parfile)!=NULL) {
 
         // Convert tabs to spaces
@@ -384,71 +386,84 @@ int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
             continue;
 
         // Split into key/val (ignore fit flag and error)
-        keytmp = strtok_r(line,  " ", &saveptr);
+        key = strtok_r(line,  " ", &saveptr);
         val = strtok_r(NULL, " ", &saveptr);
         if (key==NULL || val==NULL) continue; // TODO : complain?
 
-        // TODO: Deal with any special cases
-
-        if (strncmp(keytmp, "PSR", 3)==0)  {
+        // Deal with any special cases here
+        if (strncmp(key, "PSR", 3)==0)  {
 
             // PSR(J) -> PSR_NAME
-            sprintf(key, "PSR_NAME");
+            fits_get_colnum(pf->fptr,CASEINSEN,"PSR_NAME",&col,status);
+            fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
 
-        } else if (strncmp(keytmp, "F0", 2)==0) {
+        } else if (strncmp(key, "F0", 2)==0) {
 
             // F is converted to mHz and split into int/frac
-            
-            continue;
-        } else if (strncmp(keytmp, "TZRMJD", 6)==0) {
+            ldval = strtold(val,NULL) * 1000.0; // Hz->mHz
+            ival = (int)ldval;
+            dval = ldval - (long double)ival;
+            fits_get_colnum(pf->fptr,CASEINSEN,"IF0",&col,status);
+            fits_write_col(pf->fptr,TINT,col,row,1,1,&ival,status);
+            fits_get_colnum(pf->fptr,CASEINSEN,"FF0",&col,status);
+            fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dval,status);
+
+        } else if (strncmp(key, "TZRMJD", 6)==0) {
 
             // TZRMJD is split into int/frac
-            continue;
-        }
-
-        // All others
-        else 
-            strncpy(key, keytmp, 9);
-
-        // Find column, skip/warn if this one isn't present
-        fits_get_colnum(pf->fptr,CASEINSEN,key,&col,status);
-        if (*status==COL_NOT_FOUND) {
-            fprintf(stderr, 
-                    "psrfits_write_epherm warning: Couldn't find keyword %s "
-                    "in ephemeris table.\n",
-                    key);
-            *status=0;
-            continue;
-        }
-
-        // Need to convert string to appropriate column data type
-        // and then write it to the column.  These should all be
-        // either double int or string.
-        fits_get_coltype(pf->fptr,col,&dtype,NULL,NULL,status);
-        if (dtype==TDOUBLE || dtype==TFLOAT) { 
-            dval = atof(val);
+            ldval = strtold(val,NULL);
+            ival = (int)ldval;
+            dval = ldval - (long double)ival;
+            fits_get_colnum(pf->fptr,CASEINSEN,"TZRIMJD",&col,status);
+            fits_write_col(pf->fptr,TINT,col,row,1,1,&ival,status);
+            fits_get_colnum(pf->fptr,CASEINSEN,"TZRFMJD",&col,status);
             fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dval,status);
-        } else if (dtype==TINT || dtype==TLONG || dtype==TSHORT) {
-            ival = atoi(val);
-            fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&ival,status);
-        } else if (dtype==TSTRING) {
-            fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+
         } else {
-            fprintf(stderr, "psrfits_write_ephem warning: "
-                    "Unhandled column datatype (key=%s)\n", key);
-            continue;
+
+            // Find column, skip/warn if this one isn't present
+            fits_get_colnum(pf->fptr,CASEINSEN,key,&col,status);
+            if (*status==COL_NOT_FOUND) {
+                fprintf(stderr, 
+                        "psrfits_write_epherm warning: Couldn't find keyword %s "
+                        "in ephemeris table.\n",
+                        key);
+                *status=0;
+                continue;
+            }
+
+            // Need to convert string to appropriate column data type
+            // and then write it to the column.  These should all be
+            // either double int or string.
+            fits_get_coltype(pf->fptr,col,&dtype,NULL,NULL,status);
+            if (dtype==TDOUBLE || dtype==TFLOAT) { 
+                dval = atof(val);
+                fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dval,status);
+            } else if (dtype==TINT || dtype==TLONG || dtype==TSHORT) {
+                ival = atoi(val);
+                fits_write_col(pf->fptr,TINT,col,row,1,1,&ival,status);
+            } else if (dtype==TSTRING) {
+                fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+            } else {
+                fprintf(stderr, "psrfits_write_ephem warning: "
+                        "Unhandled column datatype (key=%s)\n", key);
+                continue;
+            }
         }
 
-        // DEBUG : sucess/failure
+        // sucess/failure
         if (*status) {
             fprintf(stderr, "psrfits_write_ephem failed: key=%s val=%s\n",
                     key, val);
             fits_report_error(stderr, *status);
             *status=0;
-        } else {
+        } 
+#if 0  // DEBUG
+        else {
             fprintf(stderr, "psrfits_write_ephem success: key=%s val=%s\n",
                     key, val);
         }
+#endif
 
     }
 
