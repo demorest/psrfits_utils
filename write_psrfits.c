@@ -101,6 +101,9 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
     // TODO: Need to include specific poln settings PF_HAND< FD_SANG, FD_XYPH
     fits_update_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
+    if (mode==fold && !strcmp("CAL",hdr->obs_mode)) 
+        fits_update_key(pf->fptr, TSTRING, "OBS_MODE", hdr->obs_mode, 
+                NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
     fits_update_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
@@ -391,6 +394,9 @@ int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
         if (key==NULL || val==NULL) continue; // TODO : complain?
 
         // Deal with any special cases here
+        // TODO: E -> ECC
+        // RA -> RAJ
+        // DEC -> DECJ
         if (strncmp(key, "PSR", 3)==0)  {
 
             // PSR(J) -> PSR_NAME
