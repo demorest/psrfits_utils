@@ -31,7 +31,9 @@ void usage() {
             "  -f nn, --final=nn        Ending input file number (auto)\n"
             "  -s src, --src=src        Override source name from file\n"
             "  -p file, --polyco=file   Polyco file to use (polyco.dat)\n"
+            "  -P file, --parfile=file  Use given .par file\n"
             "  -F nn, --foldfreq=nn     Fold at constant freq (Hz)\n"
+            "  -C, --cal                Cal folding mode\n"
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -q, --quiet              No progress indicator\n"
           );
@@ -197,10 +199,21 @@ int main(int argc, char *argv[]) {
             * pf_out.sub.bytes_per_subint);
 
     /* Output scale/offset */
-    int i;
-    for (i=0; i<pf.hdr.nchan*pf.hdr.npol; i++) {
-        pf_out.sub.dat_scales[i] = 1.0;
-        pf_out.sub.dat_offsets[i] = 0.0;
+    int i, ipol, ichan;
+    float offset_uv=0.0;  
+    // Extra cross-term offset for GUPPI
+    if (strcmp("GUPPI",pf.hdr.backend)==0) { 
+        offset_uv=0.5;
+        fprintf(stderr, "Found backend=GUPPI, setting offset_uv=%f\n",
+                offset_uv);
+    }
+    for (ipol=0; ipol<pf.hdr.npol; ipol++) {
+        for (ichan=0; ichan<pf.hdr.nchan; ichan++) {
+            float offs = 0.0;
+            if (ipol>1) offs = offset_uv;
+            pf_out.sub.dat_scales[ipol*pf.hdr.nchan + ichan] = 1.0;
+            pf_out.sub.dat_offsets[ipol*pf.hdr.nchan + ichan] = offs;
+        }
     }
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
 
@@ -303,7 +316,11 @@ int main(int argc, char *argv[]) {
         /* Read data block */
         pf.sub.data = (unsigned char *)fargs[cur_thread].data;
         rv = psrfits_read_subint(&pf);
-        if (rv) { run=0; break; }
+        if (rv) { 
+            if (rv==FILE_NOT_OPENED) rv=0; // Don't complain on file not found
+            run=0; 
+            break; 
+        }
 
         /* If we've passed final file, exit */
         if (fnum_end && pf.filenum>fnum_end) { run=0; break; }

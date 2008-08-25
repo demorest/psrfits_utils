@@ -394,14 +394,30 @@ int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
         if (key==NULL || val==NULL) continue; // TODO : complain?
 
         // Deal with any special cases here
-        // TODO: E -> ECC
-        // RA -> RAJ
-        // DEC -> DECJ
         if (strncmp(key, "PSR", 3)==0)  {
 
             // PSR(J) -> PSR_NAME
             fits_get_colnum(pf->fptr,CASEINSEN,"PSR_NAME",&col,status);
             fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+
+        } else if (strncmp(key, "RA", 2)==0) {
+
+            // RA -> RAJ
+            fits_get_colnum(pf->fptr,CASEINSEN,"RAJ",&col,status);
+            fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+
+        } else if (strncmp(key, "DEC", 3)==0) {
+
+            // DEC -> DECJ
+            fits_get_colnum(pf->fptr,CASEINSEN,"DECJ",&col,status);
+            fits_write_col(pf->fptr,TSTRING,col,row,1,1,&val,status);
+
+        } else if (key[0]=='E' && key[1]=='\0') {
+
+            // E -> ECC
+            dval = atof(val);
+            fits_get_colnum(pf->fptr,CASEINSEN,"ECC",&col,status);
+            fits_write_col(pf->fptr,TDOUBLE,col,row,1,1,&dval,status);
 
         } else if (strncmp(key, "F0", 2)==0) {
 
