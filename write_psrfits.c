@@ -156,7 +156,7 @@ int psrfits_create(struct psrfits *pf) {
     } else {
         fits_update_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
     }
-    if (!hdr->summed_polns) {
+    if (!hdr->onlyI && !hdr->summed_polns) {
         // TODO:  These need to be updated for the real machine.
         if (hdr->npol==1)
             strcpy(ctmp, "AA");

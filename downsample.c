@@ -24,23 +24,22 @@ void downsample_freq(struct psrfits *pf)
 /* Average adjacent frequency channels together in place    */
 /* Note:  this only works properly for 8-bit data currently */
 {
-    int ii, jj, kk, itmp, iidx=0, oidx=0;
+    int ii, jj, itmp, iidx=0, oidx=0;
     struct hdrinfo *hdr = &(pf->hdr); // dereference the ptr to the header struct
     unsigned char *data = pf->sub.data;
-    float norm = 1.0 / hdr->ds_freq_fact;
+    const int dsfact = hdr->ds_freq_fact;
+    float norm = 1.0 / dsfact;
 
     // Treat the polns as being parts of the same spectrum
     int out_npol = hdr->npol;
     if (hdr->onlyI) out_npol = 1;
-    int out_nchan = hdr->nchan * out_npol / hdr->ds_freq_fact;
+    const int out_nchan = hdr->nchan * out_npol / hdr->ds_freq_fact;
     
-    for (ii = 0 ; ii < hdr->nsblk ; ii++) { // Iterate over the time-slices
-        for (jj = 0 ; jj < out_nchan ; jj++) { // ... output chans
-            itmp = 0;
-            for (kk = 0 ; kk < hdr->ds_freq_fact ; kk++) // ... adjacent chans
-                itmp += (char)data[oidx++]; 
-            data[iidx++] = (int) rintf(((float) itmp) * norm);
-        }
+    for (ii = 0 ; ii < hdr->nsblk * out_nchan ; ii++) { // Iterate over the times and chans
+        itmp = 0;
+        for (jj = 0 ; jj < dsfact ; jj++) // ... adjacent chans
+            itmp += (char)data[oidx++]; 
+        data[iidx++] = (int) rintf(((float) itmp) * norm);
     }
 }
 
@@ -95,7 +94,7 @@ void guppi_update_ds_params(struct psrfits *pf)
 
         // The following correctly accounts for the middle-of-bin FFT offset
         dtmp = hdr->fctr - 0.5 * hdr->BW;
-        dtmp += 0.5 * hdr->ds_freq_fact * hdr->df;
+        dtmp += 0.5 * (hdr->ds_freq_fact - 1.0) * hdr->df;
         for (ii = 0 ; ii < out_nchan ; ii++)
             sub->dat_freqs[ii] = dtmp + ii * (hdr->df * hdr->ds_freq_fact);
 
