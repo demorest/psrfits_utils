@@ -36,6 +36,14 @@ int psrfits_create(struct psrfits *pf) {
     // Figure out what mode this is 
     int mode=0;
     mode = psrfits_obs_mode(hdr->obs_mode);
+    if (mode==fold) {
+        if (hdr->onlyI)
+            printf("Warning!  In folding mode and ONLY_I is set!\n");
+        if (hdr->ds_time_fact > 1)
+            printf("Warning!  In folding mode and DS_TIME is > 1!\n");
+        if (hdr->ds_freq_fact > 1)
+            printf("Warning!  In folding mode and DS_FREQ is > 1!\n");
+    }
 
     // Initialize the key variables if needed
     if (pf->filenum == 0) {  // first time writing to the file
@@ -84,14 +92,14 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
     if (hdr->summed_polns) {
-        if (hdr->npol > 1) {
+        if (!hdr->onlyI && hdr->npol > 1) {
             printf("Warning!:  Can't have %d polarizations _and_ be summed!\n", 
                    hdr->npol);
         }
         itmp = 2;
         fits_update_key(pf->fptr, TINT, "NRCVR", &itmp, NULL, status);
     } else {
-        if (hdr->npol > 2) { // Can't have more than 2 polns
+        if (hdr->npol > 2) { // Can't have more than 2 real polns (i.e. NRCVR)
             itmp = 2;
             fits_update_key(pf->fptr, TINT, "NRCVR", &itmp, NULL, status);
         } else {
@@ -142,7 +150,12 @@ int psrfits_create(struct psrfits *pf) {
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
     // Update the keywords that need it
-    fits_update_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
+    if (hdr->onlyI) {
+        itmp = 1;
+        fits_update_key(pf->fptr, TINT, "NPOL", &itmp, NULL, status);
+    } else {
+        fits_update_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
+    }
     if (!hdr->summed_polns) {
         // TODO:  These need to be updated for the real machine.
         if (hdr->npol==1)
@@ -156,10 +169,13 @@ int psrfits_create(struct psrfits *pf) {
         fits_update_key(pf->fptr, TSTRING, "POL_TYPE", "AA+BB", NULL, status);
     }
     // TODO what does TBIN mean in fold mode?
-    fits_update_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
+    dtmp = hdr->dt * hdr->ds_time_fact;
+    fits_update_key(pf->fptr, TDOUBLE, "TBIN", &dtmp, NULL, status);
     fits_update_key(pf->fptr, TINT, "NSUBOFFS", &(hdr->offset_subint), NULL, status);
-    fits_update_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
-    fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
+    itmp = hdr->nchan / hdr->ds_freq_fact;
+    fits_update_key(pf->fptr, TINT, "NCHAN", &itmp, NULL, status);
+    dtmp = hdr->df * hdr->ds_freq_fact;
+    fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &dtmp, NULL, status);
     if (mode==search) {
         itmp = 1;
         fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
@@ -174,24 +190,29 @@ int psrfits_create(struct psrfits *pf) {
     }
 
     // Update the column sizes for the colums containing arrays
-    itmp = hdr->nchan;
-    fits_modify_vector_len(pf->fptr, 13, itmp, status); // DAT_FREQ
-    fits_modify_vector_len(pf->fptr, 14, itmp, status); // DAT_WTS
-    itmp = hdr->nchan * hdr->npol;
-    fits_modify_vector_len(pf->fptr, 15, itmp, status); // DAT_OFFS
-    fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
-    if (mode==search)  
-        itmp = (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8;
-    else if (mode==fold) 
-        itmp = (hdr->nbin * hdr->nchan * hdr->npol);
-    fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
+    {
+        int out_npol = hdr->npol;
+        int out_nchan = hdr->nchan / hdr->ds_freq_fact;
+        if (hdr->onlyI) out_npol = 1;
 
-    // Update the TDIM field for the data column
-    if (mode==search)
-        sprintf(ctmp, "(1,%d,%d,%d)", hdr->nchan, hdr->npol, hdr->nsblk);
-    else if (mode==fold) 
-        sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, hdr->nchan, hdr->npol);
-    fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
+        fits_modify_vector_len(pf->fptr, 13, out_nchan, status); // DAT_FREQ
+        fits_modify_vector_len(pf->fptr, 14, out_nchan, status); // DAT_WTS
+        itmp = out_nchan * out_npol;
+        fits_modify_vector_len(pf->fptr, 15, itmp, status); // DAT_OFFS
+        fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
+        
+        if (mode==search)
+            itmp = (hdr->nbits * out_nchan * out_npol * hdr->nsblk) / 8;
+        else if (mode==fold)
+            itmp = (hdr->nbin * out_nchan * out_npol);
+        fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
+        // Update the TDIM field for the data column
+        if (mode==search)
+            sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, hdr->nsblk);
+        else if (mode==fold) 
+            sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, out_nchan, out_npol);
+        fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
+    }
 
     fits_flush_file(pf->fptr, status);
     
@@ -200,7 +221,7 @@ int psrfits_create(struct psrfits *pf) {
 
 
 int psrfits_write_subint(struct psrfits *pf) {
-    int row, *status, nchan, nivals, mode;
+    int row, *status, nchan, nivals, mode, out_nbytes;
     float ftmp;
     struct hdrinfo *hdr;
     struct subint *sub;
@@ -208,9 +229,19 @@ int psrfits_write_subint(struct psrfits *pf) {
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
     sub = &(pf->sub);        // dereference the ptr to the subint struct
     status = &(pf->status);  // dereference the ptr to the CFITSIO status
-    nchan = hdr->nchan;
-    nivals = hdr->nchan * hdr->npol;
+    nchan = hdr->nchan / hdr->ds_freq_fact;
+    if (hdr->onlyI)
+        nivals = nchan;
+    else
+        nivals = nchan * hdr->npol;
     mode = psrfits_obs_mode(hdr->obs_mode);
+    if (mode==fold)
+        out_nbytes = sub->bytes_per_subint / hdr->ds_freq_fact;
+    else {
+        out_nbytes = sub->bytes_per_subint / (hdr->ds_freq_fact * hdr->ds_time_fact);
+        if (hdr->onlyI)
+            out_nbytes /= hdr->npol;
+    }
 
     // Create the initial file or change to a new one if needed
     if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
@@ -245,12 +276,12 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_write_col(pf->fptr, TFLOAT, 16, row, 1, nivals, sub->dat_scales, status);
     if (mode==search) {
         // Need to change this for other data types...
-        fits_write_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint, 
-                   sub->data, status);
+        fits_write_col(pf->fptr, TBYTE, 17, row, 1, out_nbytes, 
+                       sub->data, status);
     } else if (mode==fold) { 
         // Fold mode writes floats for now..
-        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, sub->bytes_per_subint, 
-                   sub->data, status);
+        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes, 
+                       sub->data, status);
     }
 
     // Flush the buffers if not finished with the file
