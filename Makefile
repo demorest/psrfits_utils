@@ -21,9 +21,9 @@ all: $(PROGS) $(THREAD_PROGS) guppi_daq
 clean:
 	rm -f $(PROGS) $(THREAD_PROGS) guppi_daq psrfits.tgz *~ *.o test_psrfits_0*.fits
 INSTALL_DIR = ../bin
-install: $(PROGS) $(THREAD_PROGS)
+install: $(PROGS) $(THREAD_PROGS) guppi_daq
 	mkdir -p $(INSTALL_DIR) && \
-	cp -f -p $(PROGS) $(THREAD_PROGS) $(INSTALL_DIR)
+	cp -f -p $(PROGS) $(THREAD_PROGS) guppi_daq $(INSTALL_DIR)
 psrfits.tgz: psrfits.h read_psrfits.c write_psrfits.c polyco.c polyco.h \
 	guppi_PSRFITS_v3.4_fold_template.txt \
 	guppi_PSRFITS_v3.4_search_template.txt
