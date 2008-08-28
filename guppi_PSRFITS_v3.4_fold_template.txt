@@ -15,11 +15,11 @@ FRONTEND= '                '   / Rx and feed ID
 NRCVR   = 2                    / Number of receiver polarisation channels
 FD_POLN = 'LIN'                / LIN or CIRC
 FD_HAND = 1                    / +/- 1. +1 is LIN:A=X,B=Y, CIRC:A=L,B=R (I)
-FD_SANG = 0.0                  / [deg] FA of E vect for equal sig in A&B (E)
+FD_SANG = 45.0                 / [deg] FA of E vect for equal sig in A&B (E)
 FD_XYPH = 0.0                  / [deg] Phase of A^* B for injected cal (E)
 BACKEND = 'GUPPI'              / Backend ID
 BECONFIG= 'N/A'                / Backend configuration file name
-BE_PHASE= 0                    / 0/+1/-1 BE cross-phase:0 unknown,+/-1 std/rev
+BE_PHASE= -1                   / 0/+1/-1 BE cross-phase:0 unknown,+/-1 std/rev
 BE_DCC  = 0                    / 0/1 BE downconversion conjugation corrected
 BE_DELAY= 0.0                  / [s] Backend propn delay from digitiser input 
 TCYCLE  = 0.0                  / [s] On-line cycle time (D)
