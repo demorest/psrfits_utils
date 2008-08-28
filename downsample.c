@@ -38,7 +38,7 @@ void downsample_freq(struct psrfits *pf)
         for (jj = 0 ; jj < out_nchan ; jj++) { // ... output chans
             itmp = 0;
             for (kk = 0 ; kk < hdr->ds_freq_fact ; kk++) // ... adjacent chans
-                itmp += data[oidx++]; 
+                itmp += (char)data[oidx++]; 
             data[iidx++] = (int) rintf(((float) itmp) * norm);
         }
     }
@@ -67,10 +67,45 @@ void downsample_time(struct psrfits *pf)
             itmp = 0;
             oidx = ii * dsfact * out_nchan + jj;
             for (kk = 0 ; kk < dsfact ; kk++) { // ... adjacent times
-                itmp += data[oidx];
+                itmp += (char)data[oidx];
                 oidx += out_nchan;
             }
             data[iidx+jj] = (int) rintf((float) itmp * norm);
+        }
+    }
+}
+
+void guppi_update_ds_params(struct psrfits *pf)
+/* Update the various output data arrays / values so that */
+/* they are correct for the downsampled data.             */
+{
+    struct hdrinfo *hdr = &(pf->hdr); // dereference the ptr to the header struct
+    struct subint  *sub = &(pf->sub); // dereference the ptr to the subint struct
+
+    int out_npol = hdr->npol;
+    if (hdr->onlyI) out_npol = 1;
+    int out_nchan = hdr->nchan / hdr->ds_freq_fact;
+ 
+    if (hdr->ds_freq_fact > 1) {
+        int ii;
+        double dtmp;
+
+        /* Note:  we don't need to malloc the subint arrays since */
+        /*        their original values are longer by default.    */
+
+        // The following correctly accounts for the middle-of-bin FFT offset
+        dtmp = hdr->fctr - 0.5 * hdr->BW;
+        dtmp += 0.5 * hdr->ds_freq_fact * hdr->df;
+        for (ii = 0 ; ii < out_nchan ; ii++)
+            sub->dat_freqs[ii] = dtmp + ii * (hdr->df * hdr->ds_freq_fact);
+
+        for (ii = 1 ; ii < out_npol ; ii++) {
+            memcpy(sub->dat_offsets+ii*out_nchan,
+                   sub->dat_offsets+ii*hdr->nchan,
+                   sizeof(float)*out_nchan);
+            memcpy(sub->dat_scales+ii*out_nchan,
+                   sub->dat_scales+ii*hdr->nchan,
+                   sizeof(float)*out_nchan);
         }
     }
 }

@@ -91,7 +91,7 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
-    if (hdr->summed_polns) {
+    if (hdr->onlyI || hdr->summed_polns) {
         if (!hdr->onlyI && hdr->npol > 1) {
             printf("Warning!:  Can't have %d polarizations _and_ be summed!\n", 
                    hdr->npol);
@@ -177,8 +177,9 @@ int psrfits_create(struct psrfits *pf) {
     dtmp = hdr->df * hdr->ds_freq_fact;
     fits_update_key(pf->fptr, TDOUBLE, "CHAN_BW", &dtmp, NULL, status);
     if (mode==search) {
+        int out_nsblk = hdr->nsblk / hdr->ds_time_fact;
         itmp = 1;
-        fits_update_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
+        fits_update_key(pf->fptr, TINT, "NSBLK", &out_nsblk, NULL, status);
         fits_update_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
         fits_update_key(pf->fptr, TINT, "NBIN", &itmp, NULL, status);
     } else if (mode==fold) {
@@ -194,6 +195,7 @@ int psrfits_create(struct psrfits *pf) {
         int out_npol = hdr->npol;
         int out_nchan = hdr->nchan / hdr->ds_freq_fact;
         if (hdr->onlyI) out_npol = 1;
+        int out_nsblk = hdr->nsblk / hdr->ds_time_fact;
 
         fits_modify_vector_len(pf->fptr, 13, out_nchan, status); // DAT_FREQ
         fits_modify_vector_len(pf->fptr, 14, out_nchan, status); // DAT_WTS
@@ -202,13 +204,13 @@ int psrfits_create(struct psrfits *pf) {
         fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
         
         if (mode==search)
-            itmp = (hdr->nbits * out_nchan * out_npol * hdr->nsblk) / 8;
+            itmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8;
         else if (mode==fold)
             itmp = (hdr->nbin * out_nchan * out_npol);
         fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
         // Update the TDIM field for the data column
         if (mode==search)
-            sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, hdr->nsblk);
+            sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, out_nsblk);
         else if (mode==fold) 
             sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, out_nchan, out_npol);
         fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
@@ -300,7 +302,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->rownum++;
         pf->tot_rows++;
         pf->N += hdr->nsblk;
-        pf->T = pf->N * hdr->dt;
+        pf->T = pf->N * hdr->dt * hdr->ds_time_fact;
     }
     
     return *status;
