@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     double tfold = 60.0; 
     double fold_frequency=0.0;
     char output_base[256] = "fold_out";
-    char polyco_file[256] = "polyco.dat";
+    char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
     while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
@@ -129,6 +129,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    /* If no polyco/par file given, default to polyco.dat */
+    if (use_polycos && (par_file[0]=='\0' && polyco_file[0]=='\0'))
+        sprintf(polyco_file, "polyco.dat");
+
     /* Open first file */
     struct psrfits pf;
     sprintf(pf.basefilename, argv[optind]);
@@ -159,7 +163,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
     /* Set up output file */
     struct psrfits pf_out;
     memcpy(&pf_out, &pf, sizeof(struct psrfits));
@@ -170,6 +173,7 @@ int main(int argc, char *argv[]) {
     } else
         sprintf(pf_out.hdr.obs_mode, "PSR");
     if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
+    else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;
@@ -217,26 +221,46 @@ int main(int argc, char *argv[]) {
     }
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
 
-    /* Read polycos */
+    /* Try writing par file to output, else remove ephem table */
+    if (par_file[0]!='\0') {
+        FILE *par = fopen(par_file,"r");
+        if (par==NULL) {
+            fprintf(stderr, "Error opening par file %s\n", par_file);
+            exit(1);
+        }
+        rv = psrfits_write_ephem(&pf_out, par);
+        if (rv) { fits_report_error(stderr, rv); exit(1); }
+    } else {
+        rv = psrfits_remove_ephem(&pf_out);
+        if (rv) { fits_report_error(stderr, rv); exit(1); }
+    }
+
+    /* Read or make polycos */
     int npc=0, ipc=0;
     struct polyco *pc = NULL;
     if (use_polycos) {
-        FILE *pcfile = fopen(polyco_file, "r");
-        if (pcfile==NULL) { 
-            fprintf(stderr, "Couldn't open polyco file.\n");
-            exit(1);
+        if (polyco_file[0]=='\0') {
+            /* Generate from par file */
+            npc = make_polycos(par_file, &pf.hdr, source, &pc);
+            if (npc<=0) {
+                fprintf(stderr, "Error generating polycos.\n");
+                exit(1);
+            }
+            printf("Auto-generated %d polycos, src=%s\n", npc, source);
+        } else {
+            /* Read from polyco file */
+            FILE *pcfile = fopen(polyco_file, "r");
+            if (pcfile==NULL) { 
+                fprintf(stderr, "Couldn't open polyco file.\n");
+                exit(1);
+            }
+            npc = read_all_pc(pcfile, &pc);
+            if (npc==0) {
+                fprintf(stderr, "Error parsing polyco file.\n");
+                exit(1);
+            }
+            fclose(pcfile);
         }
-        do { 
-            pc = (struct polyco *)realloc(pc, sizeof(struct polyco) * (npc+1));
-            rv = read_one_pc(pcfile, &pc[npc]);
-            npc++;
-        } while (rv==0); 
-        npc--; // Final "read" is really a error or EOF.
-        if (npc==0) {
-            fprintf(stderr, "Error parsing polyco file.\n");
-            exit(1);
-        }
-        fclose(pcfile);
     } else {
         // Const fold period mode, generate a fake polyco?
         pc = (struct polyco *)malloc(sizeof(struct polyco));
@@ -260,20 +284,6 @@ int main(int argc, char *argv[]) {
         rv = psrfits_write_polycos(&pf_out, pc, npc);
     }
     if (rv) { fits_report_error(stderr, rv); exit(1); }
-
-    /* Try writing par file to output, else remove ephem table */
-    if (par_file[0]!='\0') {
-        FILE *par = fopen(par_file,"r");
-        if (par==NULL) {
-            fprintf(stderr, "Error opening par file %s\n", par_file);
-            exit(1);
-        }
-        rv = psrfits_write_ephem(&pf_out, par);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    } else {
-        rv = psrfits_remove_ephem(&pf_out);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    }
 
     /* Alloc total fold buf */
     struct foldbuf fb;
@@ -350,11 +360,11 @@ int main(int argc, char *argv[]) {
 
         /* Select polyco set */
         if (use_polycos) {
-            ipc = select_pc(pc, npc, pf_out.hdr.source, imjd, fmjd);
+            ipc = select_pc(pc, npc, source, imjd, fmjd);
             //ipc = select_pc(pc, npc, NULL, imjd, fmjd);
             if (ipc<0) { 
                 fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
-                        pf_out.hdr.source, imjd, fmjd);
+                        source, imjd, fmjd);
                 break;
             }
         } else {
