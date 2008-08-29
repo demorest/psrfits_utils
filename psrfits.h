@@ -56,6 +56,9 @@ struct hdrinfo {
     int summed_polns;       // Are polarizations summed? (1=Yes, 0=No)
     int rcvr_polns;         // Number of polns provided by the receiver
     int offset_subint;      // Offset subint number for first row in the file
+    int ds_time_fact;       // Software downsampling factor in time (1 if none)
+    int ds_freq_fact;       // Software downsampling factor in freq (1 if none)
+    int onlyI;              // 1 if the software will only record Stokes I
 };
 
 struct subint {

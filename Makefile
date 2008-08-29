@@ -11,7 +11,7 @@ PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
 	test_udp_recv test_psrfits test_psrfits_read fold_psrfits
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
         guppi_params.o guppi_time.o write_psrfits.o read_psrfits.o \
-	fold.o polyco.o hget.o hput.o sla.o
+	fold.o polyco.o hget.o hput.o sla.o downsample.o
 THREAD_PROGS = test_net_thread test_fold_thread
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
 	       guppi_psrfits_thread.o guppi_fold_thread.o \

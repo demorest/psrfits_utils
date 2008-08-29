@@ -35,6 +35,11 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TSTRING, "OBS_MODE", hdr->obs_mode, NULL, status);
     int mode = psrfits_obs_mode(hdr->obs_mode);
 
+    // Set the downsampling stuff to default values
+    hdr->onlyI = 0;
+    hdr->ds_time_fact = 1;
+    hdr->ds_freq_fact = 1;
+
     // Read some stuff
     fits_read_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope, NULL, status);
     fits_read_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
