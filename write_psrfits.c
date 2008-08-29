@@ -301,7 +301,7 @@ int psrfits_write_subint(struct psrfits *pf) {
     if (!(*status)) {
         pf->rownum++;
         pf->tot_rows++;
-        pf->N += hdr->nsblk;
+        pf->N += hdr->nsblk / hdr->ds_time_fact;
         pf->T = pf->N * hdr->dt * hdr->ds_time_fact;
     }
     
