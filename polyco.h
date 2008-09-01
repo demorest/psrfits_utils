@@ -29,6 +29,7 @@ double psr_phase_avg(const struct polyco *pc, int mjd,
         double fmjd1, double fmjd2);
 int pc_range_check(const struct polyco *pc, int mjd, double fmjd);
 int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd);
+int polycos_differ(const struct polyco *pc1, const struct polyco *pc2);
 
 #include "psrfits.h"
 int make_polycos(const char *parfile, struct hdrinfo *hdr, char *src, 

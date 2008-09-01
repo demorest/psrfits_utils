@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
     pf_out.status=0;
     pf_out.hdr.nbin=nbin;
     pf_out.sub.FITS_typecode = TFLOAT;
-    pf_out.sub.bytes_per_subint = 
+    pf_out.sub.bytes_per_subint = sizeof(float) * 
         pf_out.hdr.nchan * pf_out.hdr.npol * pf_out.hdr.nbin;
     rv = psrfits_create(&pf_out);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
@@ -197,10 +197,7 @@ int main(int argc, char *argv[]) {
             * pf.hdr.nchan * pf.hdr.npol);
     pf_out.sub.dat_scales  = (float *)malloc(sizeof(float) 
             * pf.hdr.nchan * pf.hdr.npol);
-    /* Now see later thread management section for input data buffer */
-    //pf.sub.data  = (unsigned char *)malloc(pf.sub.bytes_per_subint);
-    pf_out.sub.data  = (unsigned char *)malloc(sizeof(float) 
-            * pf_out.sub.bytes_per_subint);
+    pf_out.sub.data  = (unsigned char *)malloc(pf_out.sub.bytes_per_subint);
 
     /* Output scale/offset */
     int i, ipol, ichan;

@@ -282,7 +282,7 @@ int psrfits_write_subint(struct psrfits *pf) {
                        sub->data, status);
     } else if (mode==fold) { 
         // Fold mode writes floats for now..
-        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes, 
+        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes/sizeof(float), 
                        sub->data, status);
     }
 

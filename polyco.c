@@ -180,6 +180,19 @@ int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd) {
     return(0);
 }
 
+/* Check whether or not two polyco structs are the same */
+int polycos_differ(const struct polyco *p1, const struct polyco *p2) {
+    // Could add more tests as needed
+    if (strncmp(p1->psr, p2->psr,15)!=0) return(1);
+    if (p1->mjd!=p2->mjd) return(1);
+    if (p1->fmjd!=p2->mjd) return(1);
+    if (p1->rf!=p2->rf) return(1);
+    if (p1->nsite!=p2->nsite) return(1);
+    if (p1->nmin!=p2->nmin) return(1);
+    if (p1->nc!=p2->nc) return(1);
+    return(0);
+}
+
 /* Convert telescope name to tempo code */
 char telescope_name_to_code(const char *name) {
 
@@ -244,9 +257,11 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     }
 
     /* Get source name, copy file */
-    char line[256], parsrc[32]="", *key, *val, *saveptr;
+    char line[256], parsrc[32]="", *key, *val, *saveptr, *ptr;
     while (fgets(line,256,pf)!=NULL) {
         fprintf(fout, line);
+        while ((ptr=strchr(line,'\t'))!=NULL) *ptr=' ';
+        if ((ptr=strrchr(line,'\n')) != NULL) *ptr='\0'; 
         key = strtok_r(line, " ", &saveptr);
         val = strtok_r(NULL, " ", &saveptr);
         if (key==NULL || val==NULL) continue; 
