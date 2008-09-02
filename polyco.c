@@ -259,13 +259,17 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     /* Get source name, copy file */
     char line[256], parsrc[32]="", *key, *val, *saveptr, *ptr;
     while (fgets(line,256,pf)!=NULL) {
-        fprintf(fout, line);
+        fprintf(fout, "%s", line);
         while ((ptr=strchr(line,'\t'))!=NULL) *ptr=' ';
         if ((ptr=strrchr(line,'\n')) != NULL) *ptr='\0'; 
         key = strtok_r(line, " ", &saveptr);
         val = strtok_r(NULL, " ", &saveptr);
         if (key==NULL || val==NULL) continue; 
-        if (strncmp(key, "PSR", 3)==0) { strcpy(parsrc, val); }
+        if (strncmp(key, "PSR", 3)==0) { 
+            // J or B is bad here?
+            if (val[0]=='J' || val[0]=='B') val++;
+            strcpy(parsrc, val); 
+        }
     }
     fclose(pf);
     fclose(fout);
@@ -302,7 +306,7 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     double mjd0, mjd1;
     mjd0 = (double)hdr->MJD_epoch;
     mjd1 = (double)(hdr->MJD_epoch + hdr->scanlen/86400.0);
-    sprintf(line, "echo %.8f %.8f | tempo -z -f pulsar.par > /dev/null",
+    sprintf(line, "echo %.3f %.3f | tempo -z -f pulsar.par > /dev/null",
             mjd0, mjd1);
     system(line);
 
