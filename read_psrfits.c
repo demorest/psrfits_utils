@@ -24,6 +24,7 @@ int psrfits_open(struct psrfits *pf) {
 
     printf("Opening file '%s'\n", pf->filename);
     fits_open_file(&(pf->fptr), pf->filename, READONLY, status);
+    pf->mode = 'r';
 
     // If file no exist, exit now
     if (*status) { return *status; }

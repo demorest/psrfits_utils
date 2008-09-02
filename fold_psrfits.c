@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     struct psrfits pf;
     sprintf(pf.basefilename, argv[optind]);
     pf.filenum = fnum_start;
-    pf.status = 0;
+    pf.tot_rows = pf.N = pf.T = pf.status = 0;
     int rv = psrfits_open(&pf);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 

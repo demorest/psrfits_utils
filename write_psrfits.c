@@ -52,6 +52,7 @@ int psrfits_create(struct psrfits *pf) {
         pf->N = 0L;
         pf->T = 0.0;
         hdr->offset_subint = 0;
+        pf->mode = 'w';
     }
     pf->filenum++;
     pf->rownum = 1;
@@ -302,7 +303,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->rownum++;
         pf->tot_rows++;
         pf->N += hdr->nsblk / hdr->ds_time_fact;
-        pf->T = pf->N * hdr->dt * hdr->ds_time_fact;
+        pf->T += sub->tsubint;
     }
     
     return *status;
@@ -571,7 +572,8 @@ int psrfits_close(struct psrfits *pf) {
         fits_close_file(pf->fptr, &(pf->status));
         printf("Closing file '%s'\n", pf->filename);
     }
-    printf("Done.  Wrote %d subints (%f sec) in %d files (status = %d).\n",
-           pf->tot_rows, pf->T, pf->filenum, pf->status);
+    printf("Done.  %s %d subints (%f sec) in %d files (status = %d).\n",
+            pf->mode=='r' ? "Read" : "Wrote", 
+            pf->tot_rows, pf->T, pf->filenum, pf->status);
     return pf->status;
 }
