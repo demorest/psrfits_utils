@@ -208,6 +208,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Found backend=GUPPI, setting offset_uv=%f\n",
                 offset_uv);
     }
+    // TODO: copy these from the input file
     for (ipol=0; ipol<pf.hdr.npol; ipol++) {
         for (ichan=0; ichan<pf.hdr.nchan; ichan++) {
             float offs = 0.0;

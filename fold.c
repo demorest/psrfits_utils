@@ -264,8 +264,12 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     if (pc_out_of_range(pc, imjd, fmjd)) { return(-1); }
 
     /* Calc phase, phase step */
+    /* NOTE: Starting sample phase is computed for the middle
+     * of the first sample, assuming input fmjd refers to 
+     * the rising edge of the first sample given
+     */
     double dphase=0.0;
-    double phase = psr_phase(pc, imjd, fmjd, NULL);
+    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL);
     phase = fmod(phase, 1.0);
     if (phase<0.0) { phase += 1.0; }
     psr_phase(pc, imjd, fmjd_mid, &dphase);
