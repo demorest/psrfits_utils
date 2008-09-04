@@ -31,6 +31,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     pc->nmin = atoi(&buf[43]);
     pc->nc = atoi(&buf[50]);
     pc->rf = atof(&buf[55]);
+    pc->used = 0;
     for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
         rv=fgets(buf, 90, f);
         if (rv==NULL) { return(-1); }

@@ -272,16 +272,9 @@ int main(int argc, char *argv[]) {
         pc[0].nc = 1;
         pc[0].rf = pf.hdr.fctr;
         pc[0].c[0] = 0.0;
+        pc[0].used = 0;
         npc = 1;
     }
-
-    /* For now, just write all polycos (except in cal mode) */
-    if (cal)
-        rv = psrfits_remove_polycos(&pf_out);
-    else {
-        rv = psrfits_write_polycos(&pf_out, pc, npc);
-    }
-    if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     /* Alloc total fold buf */
     struct foldbuf fb;
@@ -368,6 +361,7 @@ int main(int argc, char *argv[]) {
         } else {
             ipc = 0;
         }
+        pc[ipc].used = 1; // Mark this polyco set as used for folding
 
         /* TODO: deal with scale/offset */
 
@@ -455,6 +449,14 @@ int main(int argc, char *argv[]) {
     /* Join any running threads */
     for (i=0; i<cur_thread; i++)  
         if (thread_id[i]) pthread_join(thread_id[i], NULL);
+
+    /* Write used polycos (except in cal mode) */
+    if (cal)
+        rv = psrfits_remove_polycos(&pf_out);
+    else {
+        rv = psrfits_write_polycos(&pf_out, pc, npc);
+    }
+    if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     psrfits_close(&pf_out);
     psrfits_close(&pf);

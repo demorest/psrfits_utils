@@ -330,6 +330,9 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     // XXX start at end of table?
     for (i=0; i<npc; i++) {
 
+        // Only write polycos that were used
+        if (!pc[i].used) continue; 
+
         row = i+1;
 
         cptr = datestr;

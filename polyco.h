@@ -15,6 +15,7 @@ struct polyco {
     int nmin;
     int nc;
     float rf;
+    int used;
     double c[15];
 };
 
