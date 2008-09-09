@@ -29,9 +29,11 @@ int psrfits_create(struct psrfits *pf) {
     double dtmp;
     char ctmp[40];
     struct hdrinfo *hdr;
+    struct foldinfo *fld;
 
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
     status = &(pf->status);  // dereference the ptr to the CFITSIO status
+    fld = &(pf->fold);       // ptr to foldinfo struct
 
     // Figure out what mode this is 
     int mode=0;
@@ -152,7 +154,7 @@ int psrfits_create(struct psrfits *pf) {
         if (strcmp("CAL",hdr->obs_mode)==0) {
             // CAL mode has no par file, or no par file given
             psrfits_remove_ephem(pf);
-        } else if (hdr->parfile[0]=='\0') {
+        } else if (fld->parfile[0]=='\0') {
             // No par file given
             fprintf(stderr, 
                     "psrfits_create warning:  "
@@ -161,12 +163,12 @@ int psrfits_create(struct psrfits *pf) {
                     );
             psrfits_remove_ephem(pf);
         } else {
-            FILE *parfile = fopen(hdr->parfile, "r");
+            FILE *parfile = fopen(fld->parfile, "r");
             if (parfile==NULL) {
                 fprintf(stderr, 
                         "psrfits_create warning:  "
                         "Error opening parfile %s - "
-                        "EPHEM table will be removed.\n", hdr->parfile
+                        "EPHEM table will be removed.\n", fld->parfile
                         );
                 psrfits_remove_ephem(pf);
             } else {
@@ -355,7 +357,7 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     char datestr[32], ctmp[32];
     char *cptr;
     fits_get_system_time(datestr, &itmp, status);
-    int i, col; 
+    int i, col, n_written=0; 
     long row;
     fits_get_num_rows(pf->fptr, &row, status); // Start at end of table
     for (i=0; i<npc; i++) {
@@ -411,12 +413,16 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
 
         fits_get_colnum(pf->fptr,CASEINSEN,"COEFF",&col,status);
         fits_write_col(pf->fptr,TDOUBLE,col,row,1,pc[i].nc,pc[i].c,status);
+
+        n_written++;
     }
 
-    // Update polyco block count
-    itmp = row;
-    fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
-    fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
+    // Update polyco block count, only if new info was added
+    if (n_written) {
+        itmp = row;
+        fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
+        fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
+    }
 
     // Go back to orig HDU
     fits_movabs_hdu(pf->fptr, hdu, NULL, status);

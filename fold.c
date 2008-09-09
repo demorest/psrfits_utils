@@ -35,13 +35,23 @@ void malloc_foldbuf(struct foldbuf *f) {
 }
 
 void free_foldbuf(struct foldbuf *f) {
-    if (f->data!=NULL) free(f->data);
-    if (f->count!=NULL) free(f->count);
+    if (f->data!=NULL) { free(f->data); f->data=NULL; }
+    if (f->count!=NULL) { free(f->count); f->count=NULL; }
 }
 
 void clear_foldbuf(struct foldbuf *f) {
     memset(f->data, 0, sizeof(float) * f->nbin * f->npol * f->nchan);
-    memset(f->count, 0, sizeof(float) * f->nbin);
+    memset(f->count, 0, sizeof(unsigned) * f->nbin);
+}
+
+size_t foldbuf_data_size(const struct foldbuf *f) {
+    if (f->data==NULL) return(0);
+    return(sizeof(float) * f->nbin * f->npol * f->nchan);
+}
+
+size_t foldbuf_count_size(const struct foldbuf *f) {
+    if (f->count==NULL) return(0);
+    return(sizeof(unsigned) * f->nbin);
 }
 
 /* Combines unpack and accumulate */
@@ -312,7 +322,7 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     return(0);
 }
 
-int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f) {
+int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f) {
     if (ftot->nbin!=f->nbin || ftot->nchan!=f->nchan || ftot->npol!=f->npol) {
         return(-1);
     }
@@ -323,7 +333,7 @@ int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f) {
 }
 
 /* normalize and transpose to psrfits order */
-int normalize_transpose_folds(float *out, struct foldbuf *f) {
+int normalize_transpose_folds(float *out, const struct foldbuf *f) {
     int ibin, ii;
     for (ibin=0; ibin<f->nbin; ibin++) {
         for (ii=0; ii<f->nchan*f->npol; ii++) {

@@ -18,6 +18,7 @@ int psrfits_open(struct psrfits *pf) {
 
     struct hdrinfo *hdr = &(pf->hdr);
     struct subint  *sub = &(pf->sub);
+    struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
     sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
@@ -41,8 +42,10 @@ int psrfits_open(struct psrfits *pf) {
     hdr->ds_time_fact = 1;
     hdr->ds_freq_fact = 1;
 
-    // Blank parfile name
-    hdr->parfile[0] = '\0';
+    // Blank parfile name, folding params
+    fold->parfile[0] = '\0';
+    fold->n_polyco_sets = 0;
+    fold->pc = NULL;
 
     // Read some stuff
     fits_read_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope, NULL, status);

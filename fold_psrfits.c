@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
         sprintf(pf_out.hdr.obs_mode, "PSR");
     if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
-    strncpy(pf_out.hdr.parfile,par_file,255); pf_out.hdr.parfile[255]='\0';
+    strncpy(pf_out.fold.parfile,par_file,255); pf_out.fold.parfile[255]='\0';
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;

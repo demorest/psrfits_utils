@@ -5,19 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct polyco {
-    char psr[15];
-    int mjd;
-    double fmjd;
-    double rphase;
-    double f0;
-    int nsite;
-    int nmin;
-    int nc;
-    float rf;
-    int used;
-    double c[15];
-};
+#include "polyco_struct.h"
 
 int read_one_pc(FILE *f, struct polyco *pc);
 int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd);
