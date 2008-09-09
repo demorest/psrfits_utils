@@ -27,6 +27,7 @@ struct hdrinfo {
     char track_mode[16];    // Track mode (TRACK, SCANGC, SCANLAT)
     char cal_mode[8];       // Cal mode (OFF, SYNC, EXT1, EXT2
     char feed_mode[8];      // Feed track mode (FA, CPA, SPA, TPA)
+    char parfile[256];      // Parfile name for folding
     long double MJD_epoch;  // Starting epoch in MJD
     double dt;              // Sample duration (s)
     double fctr;            // Center frequency of the observing band (MHz)

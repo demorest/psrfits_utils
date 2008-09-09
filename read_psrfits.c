@@ -41,6 +41,9 @@ int psrfits_open(struct psrfits *pf) {
     hdr->ds_time_fact = 1;
     hdr->ds_freq_fact = 1;
 
+    // Blank parfile name
+    hdr->parfile[0] = '\0';
+
     // Read some stuff
     fits_read_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope, NULL, status);
     fits_read_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);

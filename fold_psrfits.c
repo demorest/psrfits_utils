@@ -174,6 +174,7 @@ int main(int argc, char *argv[]) {
         sprintf(pf_out.hdr.obs_mode, "PSR");
     if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
+    strncpy(pf_out.hdr.parfile,par_file,255); pf_out.hdr.parfile[255]='\0';
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;
@@ -218,20 +219,6 @@ int main(int argc, char *argv[]) {
         }
     }
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
-
-    /* Try writing par file to output, else remove ephem table */
-    if (par_file[0]!='\0') {
-        FILE *par = fopen(par_file,"r");
-        if (par==NULL) {
-            fprintf(stderr, "Error opening par file %s\n", par_file);
-            exit(1);
-        }
-        rv = psrfits_write_ephem(&pf_out, par);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    } else {
-        rv = psrfits_remove_ephem(&pf_out);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    }
 
     /* Read or make polycos */
     int npc=0, ipc=0;

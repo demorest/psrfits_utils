@@ -147,6 +147,35 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
 
+    // If fold mode, copy the parfile into the PSRFITS EPHEM table
+    if (mode==fold) {
+        if (strcmp("CAL",hdr->obs_mode)==0) {
+            // CAL mode has no par file, or no par file given
+            psrfits_remove_ephem(pf);
+        } else if (hdr->parfile[0]=='\0') {
+            // No par file given
+            fprintf(stderr, 
+                    "psrfits_create warning:  "
+                    "Fold mode selected, but no parfile given - "
+                    "EPHEM table will be removed.\n"
+                    );
+            psrfits_remove_ephem(pf);
+        } else {
+            FILE *parfile = fopen(hdr->parfile, "r");
+            if (parfile==NULL) {
+                fprintf(stderr, 
+                        "psrfits_create warning:  "
+                        "Error opening parfile %s - "
+                        "EPHEM table will be removed.\n", hdr->parfile
+                        );
+                psrfits_remove_ephem(pf);
+            } else {
+                psrfits_write_ephem(pf, parfile);
+                fclose(parfile);
+            }
+        }
+    }
+
     // Go to the SUBINT HDU
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
@@ -326,14 +355,16 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     char datestr[32], ctmp[32];
     char *cptr;
     fits_get_system_time(datestr, &itmp, status);
-    int i, row, col; 
-    // XXX start at end of table?
+    int i, col; 
+    long row;
+    fits_get_num_rows(pf->fptr, &row, status); // Start at end of table
     for (i=0; i<npc; i++) {
 
         // Only write polycos that were used
         if (!pc[i].used) continue; 
 
-        row = i+1;
+        // Go to next row (1-based index)
+        row++;
 
         cptr = datestr;
         fits_get_colnum(pf->fptr,CASEINSEN,"DATE_PRO",&col,status);
@@ -349,10 +380,6 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
 
         fits_get_colnum(pf->fptr,CASEINSEN,"NCOEF",&col,status);
         fits_write_col(pf->fptr,TINT,col,row,1,1,&(pc[i].nc),status);
-
-        itmp = npc;
-        fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
-        fits_write_col(pf->fptr,TINT,col,row,1,1,&itmp,status);
 
         sprintf(ctmp,"%d", pc[i].nsite); // XXX convert to letter?
         cptr = ctmp;
@@ -385,6 +412,11 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
         fits_get_colnum(pf->fptr,CASEINSEN,"COEFF",&col,status);
         fits_write_col(pf->fptr,TDOUBLE,col,row,1,pc[i].nc,pc[i].c,status);
     }
+
+    // Update polyco block count
+    itmp = row;
+    fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
+    fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
 
     // Go back to orig HDU
     fits_movabs_hdu(pf->fptr, hdu, NULL, status);
