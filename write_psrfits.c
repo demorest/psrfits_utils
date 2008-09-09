@@ -336,7 +336,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->N += hdr->nsblk / hdr->ds_time_fact;
         pf->T += sub->tsubint;
     }
-    
+
     return *status;
 }
 
