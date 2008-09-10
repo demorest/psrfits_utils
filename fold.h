@@ -16,7 +16,10 @@ void free_foldbuf(struct foldbuf *f);
 
 void clear_foldbuf(struct foldbuf *f);
 
-int normalize_transpose_folds(float *out, struct foldbuf *f);
+size_t foldbuf_data_size(const struct foldbuf *f);
+size_t foldbuf_count_size(const struct foldbuf *f);
+
+int normalize_transpose_folds(float *out, const struct foldbuf *f);
 
 struct fold_args {
     struct polyco *pc;
@@ -35,6 +38,6 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         const char *data, int nsamp, double tsamp, int raw_signed,
         struct foldbuf *f);
 
-int accumulate_folds(struct foldbuf *ftot, struct foldbuf *f);
+int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f);
 
 #endif

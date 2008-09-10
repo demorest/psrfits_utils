@@ -266,110 +266,110 @@ TFORM#  = 1D                   / Double
 TUNIT#  = Hz                   / Units of field
 #
 # New parameters for TEMPO2, ignored for EPHVER < 5
-#
-TTYPE#  = ECLOBL               / Ecliptic obliquity 
-TFORM#  = 1D                   / Double
-TUNIT#  = arcsec               / Units of field
-TTYPE#  = IPM                  / Correct for interplanetary dispersion 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 1                    / Default = True
-TTYPE#  = TEMPO1               / Tempo1 emulation mode 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 0                    / Default = False
-TTYPE#  = DILATEFREQ           / Correct obs frequency for time dilation 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 1                    / Default = True
-TTYPE#  = NO_SS_SHAPIRO        / Turn off all solar system Shapiro delays
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 0                    / Default = False
-TTYPE#  = PLANET_SHAPIRO       / Account for planetary Shapiro delays 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 1                    / Default = True
-TTYPE#  = CORRECT_TROPO        / Correct for tropospheric delays 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 1                    / Default = True
-TTYPE#  = UNITS                / Units for SSB timescale (SI, TDB) 
-TFORM#  = 4A                   / String
-TNULL#  = SI                   / Default = SI
-TTYPE#  = NE1AU                / Solar electron density scale @1AU
-TFORM#  = 1D                   / Double
-TUNIT#  = cm**(-3) pc          / Units of field
-TTYPE#  = TIMEEPH              / Time ephemeris code to use (IF99, fb90)
-TFORM#  = 6A                   / String
-TNULL#  = IF99                 / Default = IF99
-TTYPE#  = T2CMETHOD            / Polar Motion/Prec/Nut code (IAU2000B, TEMPO)
-TFORM#  = 9A                   / String
-TNULL#  = IAU2000B             / Default = IAU2000B
-TTYPE#  = DMFACTOR             / DM/Dispersion Constant 
-TFORM#  = 1D                   / Double
-TUNIT#  = cm**(-3) pc s**(-3)  / Units of field
-TTYPE#  = DMEPOCH              / Epoch for DM 
-TFORM#  = 1D                   / Double
-TUNIT#  = MJD                  / Units of field
-TTYPE#  = FDDC                 / Scale of freq-dependent delay 
-TFORM#  = 1D                   / Double
-TUNIT#  = s MHz**(-FDDI)       / Units of field
-TTYPE#  = FDDI                 / Spectral index of freq-dependent delay
-TFORM#  = 1D                   / Double
-TTYPE#  = MSS                  / Use Wex 1988 "MSS" in T2 binary model 
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 0                    / Default = False
-TTYPE#  = BINIT                / Iterate to invert binary timing formula
-TFORM#  = 1I                   / Integer flag
-TNULL#  = 1                    / Default = True
-TTYPE#  = SHAPMAX              / -ln(1-sini) Shapiro delay parameter
-TFORM#  = 1D                   / Double
-TTYPE#  = KOM                  / Position angle of ascending node 
-TFORM#  = 1D                   / Double
-TUNIT#  = deg                  / Units of field
-TTYPE#  = KIN                  / Inclination of orbit, for Kopeikin terms
-TFORM#  = 1D                   / Double
-TUNIT#  = deg                  / Units of field
-TTYPE#  = KMPRA                / PMRA for Kopeikin term 
-TFORM#  = 1D                   / Double
-TUNIT#  = mas/yr               / Units of field
-TTYPE#  = KPMDEC               / PMDEC for Kopeikin term 
-TFORM#  = 1D                   / Double
-TUNIT#  = mas/yr               / Units of field
-TTYPE#  = KPMELONG             / PMELONG for Kopeikin term
-TFORM#  = 1D                   / Double
-TUNIT#  = mas/yr               / Units of field
-TTYPE#  = KPMELAT              / PMELAT for Kopeikin term 
-TFORM#  = 1D                   / Double
-TUNIT#  = mas/yr               / Units of field
-TTYPE#  = RV                   / Radial velocity 
-TFORM#  = 1D                   / Double
-TUNIT#  = km/s                 / Units of field
-TTYPE#  = RVS                  / Radial velocity for Shklovskii-dot term
-TFORM#  = 1D                   / Double
-TUNIT#  = km/s                 / Units of field
-TTYPE#  = VT                   / Transverse velocity for Doppler term
-TFORM#  = 1D                   / Double
-TUNIT#  = m s**(-2)            / Units of field
-TTYPE#  = RACC                 / Radial acceleration 
-TFORM#  = 1D                   / Double
-TUNIT#  = m s**(-2)            / Units of field
-TTYPE#  = PMACC                / Accel parallel to proper motion 
-TFORM#  = 1D                   / Double
-TUNIT#  = m s**(-2)            / Units of field
-TTYPE#  = D_SHK                / Distance for Shklovskii term 
-TFORM#  = 1D                   / Double
-TUNIT#  = kpc                  / Units of field
-TTYPE#  = D_AOP                / Distance for annual-orbital parallax 
-TFORM#  = 1D                   / Double
-TUNIT#  = kpc                  / Units of field
-TTYPE#  = D_OP                 / Distance for orbital parallax 
-TFORM#  = 1D                   / Double
-TUNIT#  = kpc                  / Units of field
-TTYPE#  = WAVE_FREQ            / Fundamental FITWAVE frequency
-TFORM#  = 1D                   / Double
-TUNIT#  = Hz                   / Units of field
-TTYPE#  = WAVES_1              / FITWAVE sine component amplitude
-TFORM#  = 1D                   / Double
-TUNIT#  = s                    / Units of field
-TTYPE#  = WAVEC_1              / FITWAVE cosine component amplitude
-TFORM#  = 1D                   / Double
-TUNIT#  = s                    / Units of field
+# (Commented out for now - PBD)
+#TTYPE#  = ECLOBL               / Ecliptic obliquity 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = arcsec               / Units of field
+#TTYPE#  = IPM                  / Correct for interplanetary dispersion 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 1                    / Default = True
+#TTYPE#  = TEMPO1               / Tempo1 emulation mode 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 0                    / Default = False
+#TTYPE#  = DILATEFREQ           / Correct obs frequency for time dilation 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 1                    / Default = True
+#TTYPE#  = NO_SS_SHAPIRO        / Turn off all solar system Shapiro delays
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 0                    / Default = False
+#TTYPE#  = PLANET_SHAPIRO       / Account for planetary Shapiro delays 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 1                    / Default = True
+#TTYPE#  = CORRECT_TROPO        / Correct for tropospheric delays 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 1                    / Default = True
+#TTYPE#  = UNITS                / Units for SSB timescale (SI, TDB) 
+#TFORM#  = 4A                   / String
+#TNULL#  = SI                   / Default = SI
+#TTYPE#  = NE1AU                / Solar electron density scale @1AU
+#TFORM#  = 1D                   / Double
+#TUNIT#  = cm**(-3) pc          / Units of field
+#TTYPE#  = TIMEEPH              / Time ephemeris code to use (IF99, fb90)
+#TFORM#  = 6A                   / String
+#TNULL#  = IF99                 / Default = IF99
+#TTYPE#  = T2CMETHOD            / Polar Motion/Prec/Nut code (IAU2000B, TEMPO)
+#TFORM#  = 9A                   / String
+#TNULL#  = IAU2000B             / Default = IAU2000B
+#TTYPE#  = DMFACTOR             / DM/Dispersion Constant 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = cm**(-3) pc s**(-3)  / Units of field
+#TTYPE#  = DMEPOCH              / Epoch for DM 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = MJD                  / Units of field
+#TTYPE#  = FDDC                 / Scale of freq-dependent delay 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = s MHz**(-FDDI)       / Units of field
+#TTYPE#  = FDDI                 / Spectral index of freq-dependent delay
+#TFORM#  = 1D                   / Double
+#TTYPE#  = MSS                  / Use Wex 1988 "MSS" in T2 binary model 
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 0                    / Default = False
+#TTYPE#  = BINIT                / Iterate to invert binary timing formula
+#TFORM#  = 1I                   / Integer flag
+#TNULL#  = 1                    / Default = True
+#TTYPE#  = SHAPMAX              / -ln(1-sini) Shapiro delay parameter
+#TFORM#  = 1D                   / Double
+#TTYPE#  = KOM                  / Position angle of ascending node 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = deg                  / Units of field
+#TTYPE#  = KIN                  / Inclination of orbit, for Kopeikin terms
+#TFORM#  = 1D                   / Double
+#TUNIT#  = deg                  / Units of field
+#TTYPE#  = KMPRA                / PMRA for Kopeikin term 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = mas/yr               / Units of field
+#TTYPE#  = KPMDEC               / PMDEC for Kopeikin term 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = mas/yr               / Units of field
+#TTYPE#  = KPMELONG             / PMELONG for Kopeikin term
+#TFORM#  = 1D                   / Double
+#TUNIT#  = mas/yr               / Units of field
+#TTYPE#  = KPMELAT              / PMELAT for Kopeikin term 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = mas/yr               / Units of field
+#TTYPE#  = RV                   / Radial velocity 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = km/s                 / Units of field
+#TTYPE#  = RVS                  / Radial velocity for Shklovskii-dot term
+#TFORM#  = 1D                   / Double
+#TUNIT#  = km/s                 / Units of field
+#TTYPE#  = VT                   / Transverse velocity for Doppler term
+#TFORM#  = 1D                   / Double
+#TUNIT#  = m s**(-2)            / Units of field
+#TTYPE#  = RACC                 / Radial acceleration 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = m s**(-2)            / Units of field
+#TTYPE#  = PMACC                / Accel parallel to proper motion 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = m s**(-2)            / Units of field
+#TTYPE#  = D_SHK                / Distance for Shklovskii term 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = kpc                  / Units of field
+#TTYPE#  = D_AOP                / Distance for annual-orbital parallax 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = kpc                  / Units of field
+#TTYPE#  = D_OP                 / Distance for orbital parallax 
+#TFORM#  = 1D                   / Double
+#TUNIT#  = kpc                  / Units of field
+#TTYPE#  = WAVE_FREQ            / Fundamental FITWAVE frequency
+#TFORM#  = 1D                   / Double
+#TUNIT#  = Hz                   / Units of field
+#TTYPE#  = WAVES_1              / FITWAVE sine component amplitude
+#TFORM#  = 1D                   / Double
+#TUNIT#  = s                    / Units of field
+#TTYPE#  = WAVEC_1              / FITWAVE cosine component amplitude
+#TFORM#  = 1D                   / Double
+#TUNIT#  = s                    / Units of field
 END
 #
 ###############################################################################
