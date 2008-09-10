@@ -421,7 +421,6 @@ int main(int argc, char *argv[]) {
 
             /* Set next output time */
             fmjd_next = fmjd + tfold/86400.0;
-            if (!quiet) printf("\rWrote subint   \n");
         }
 
 

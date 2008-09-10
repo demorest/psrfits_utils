@@ -335,6 +335,13 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->tot_rows++;
         pf->N += hdr->nsblk / hdr->ds_time_fact;
         pf->T += sub->tsubint;
+
+        // For fold mode, print info each subint written
+        if (mode==fold) {
+            printf("Wrote subint %d (total time %.1fs)\n", pf->rownum-1, pf->T);
+            fflush(stdout);
+        }
+
     }
 
     return *status;
