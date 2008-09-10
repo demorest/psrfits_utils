@@ -336,9 +336,13 @@ int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f) {
 int normalize_transpose_folds(float *out, const struct foldbuf *f) {
     int ibin, ii;
     for (ibin=0; ibin<f->nbin; ibin++) {
-        for (ii=0; ii<f->nchan*f->npol; ii++) {
-            out[ibin + ii*f->nbin] =
-                f->data[ii + ibin*f->nchan*f->npol] / (float)f->count[ibin];
+        if (f->count[ibin]==0) {
+            for (ii=0; ii<f->nchan*f->npol; ii++) 
+                out[ibin + ii*f->nbin] = 0.0;
+        } else {
+            for (ii=0; ii<f->nchan*f->npol; ii++) 
+                out[ibin + ii*f->nbin] =
+                    f->data[ii + ibin*f->nchan*f->npol] / (float)f->count[ibin];
         }
     }
     return(0);
