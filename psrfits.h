@@ -2,7 +2,6 @@
 #ifndef _PSRFITS_H
 #define _PSRFITS_H
 #include "fitsio.h"
-#include "polyco.h"
 
 // The following is the max file length in GB
 #define PSRFITS_MAXFILELEN 10L
@@ -102,6 +101,7 @@ struct psrfits {
 // In write_psrfits.c
 int psrfits_create(struct psrfits *pf);
 int psrfits_write_subint(struct psrfits *pf);
+#include "polyco.h"
 int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc);
 int psrfits_write_ephem(struct psrfits *pf, FILE *parfile);
 int psrfits_close(struct psrfits *pf);
