@@ -60,8 +60,12 @@ int psrfits_create(struct psrfits *pf) {
     pf->rownum = 1;
     hdr->offset_subint = pf->tot_rows;
 
-    // Update the filename
-    sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+    // Update the filename - don't include filenum for fold mode
+    // TODO : use rf/cf extensions for psr/cals?
+    if (mode==fold)
+        sprintf(pf->filename, "%s.fits", pf->basefilename);
+    else
+        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
@@ -81,6 +85,13 @@ int psrfits_create(struct psrfits *pf) {
         sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_FOLD_TEMPLATE);
     }
     fits_create_template(&(pf->fptr), pf->filename, template_file, status);
+
+    // Check to see if file was successfully created
+    if (*status) {
+        fprintf(stderr, "Error creating psrfits file from template.\n");
+        fits_report_error(stderr, *status);
+        exit(1);
+    }
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);

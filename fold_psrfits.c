@@ -23,7 +23,7 @@ void usage() {
             "Usage: fold_psrfits [options] input_filename_base\n"
             "Options:\n"
             "  -h, --help               Print this\n"
-            "  -o name, --output=name   Output base filename (fold_out)\n"
+            "  -o name, --output=name   Output base filename (auto-generate)\n"
             "  -b nn, --nbin=nn         Number of profile bins (256)\n"
             "  -t nn, --tsub=n          Folded subintegration time, sec (60)\n"
             "  -j nn, --nthread=nn      Max number of threads (4)\n"
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     int quiet=0, raw_signed=1, use_polycos=1, cal=0;
     double tfold = 60.0; 
     double fold_frequency=0.0;
-    char output_base[256] = "fold_out";
+    char output_base[256] = "";
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
@@ -166,14 +166,20 @@ int main(int argc, char *argv[]) {
     /* Set up output file */
     struct psrfits pf_out;
     memcpy(&pf_out, &pf, sizeof(struct psrfits));
+    if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
+    else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
+    if (output_base[0]=='\0') {
+        /* Set up default output filename */
+        sprintf(output_base, "%s_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
+                pf_out.hdr.source, pf_out.hdr.start_day, 
+                (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
+    }
     sprintf(pf_out.basefilename, output_base);
     if (cal) {
         sprintf(pf_out.hdr.obs_mode, "CAL");
         sprintf(pf_out.hdr.cal_mode, "SYNC");
     } else
         sprintf(pf_out.hdr.obs_mode, "PSR");
-    if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
-    else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
     strncpy(pf_out.fold.parfile,par_file,255); pf_out.fold.parfile[255]='\0';
     pf_out.fptr = NULL;
     pf_out.filenum=0;

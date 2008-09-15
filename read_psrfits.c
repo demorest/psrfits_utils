@@ -77,10 +77,13 @@ int psrfits_open(struct psrfits *pf) {
 
     fits_read_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
     hdr->MJD_epoch = (long double)itmp;
+    hdr->start_day = itmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_SMJD", &dtmp, NULL, status);
     hdr->MJD_epoch += dtmp/86400.0L;
+    hdr->start_sec = dtmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     hdr->MJD_epoch += dtmp/86400.0L;
+    hdr->start_sec += dtmp;
 
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, 
             status);
