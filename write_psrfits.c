@@ -277,8 +277,10 @@ int psrfits_write_subint(struct psrfits *pf) {
             out_nbytes /= hdr->npol;
     }
 
-    // Create the initial file or change to a new one if needed
-    if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
+    // Create the initial file or change to a new one if needed.
+    // Stay with a single file for fold mode.
+    if (pf->filenum==0 || 
+            (mode==search && pf->rownum > pf->rows_per_file)) {
         if (pf->filenum) {
             printf("Closing file '%s'\n", pf->filename);
             fits_close_file(pf->fptr, status);
