@@ -419,6 +419,13 @@ int main(int argc, char *argv[]) {
             normalize_transpose_folds((float *)pf_out.sub.data, &fb);
             psrfits_write_subint(&pf_out);
 
+            /* Check for write errors */
+            if (pf_out.status) {
+                fprintf(stderr, "Error writing subint.\n");
+                fits_report_error(stderr, pf_out.status);
+                exit(1);
+            }
+
             /* Clear counters, avgs */
             clear_foldbuf(&fb);
             pf_out.sub.offs = 0.0;

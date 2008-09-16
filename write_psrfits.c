@@ -441,8 +441,12 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     if (n_written) {
         itmp = row;
         fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
-        fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
+        for (i=1; i<=row; i++) 
+            fits_write_col(pf->fptr,TINT,col,i,1,1,&itmp,status);
     }
+
+    // Flush buffers (so files are valid as they are created)
+    fits_flush_file(pf->fptr, status);
 
     // Go back to orig HDU
     fits_movabs_hdu(pf->fptr, hdu, NULL, status);
