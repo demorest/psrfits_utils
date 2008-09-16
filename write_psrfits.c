@@ -60,8 +60,12 @@ int psrfits_create(struct psrfits *pf) {
     pf->rownum = 1;
     hdr->offset_subint = pf->tot_rows;
 
-    // Update the filename
-    sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+    // Update the filename - don't include filenum for fold mode
+    // TODO : use rf/cf extensions for psr/cals?
+    if (mode==fold)
+        sprintf(pf->filename, "%s.fits", pf->basefilename);
+    else
+        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
@@ -81,6 +85,13 @@ int psrfits_create(struct psrfits *pf) {
         sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_FOLD_TEMPLATE);
     }
     fits_create_template(&(pf->fptr), pf->filename, template_file, status);
+
+    // Check to see if file was successfully created
+    if (*status) {
+        fprintf(stderr, "Error creating psrfits file from template.\n");
+        fits_report_error(stderr, *status);
+        exit(1);
+    }
 
     // Go to the primary HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
@@ -277,8 +288,10 @@ int psrfits_write_subint(struct psrfits *pf) {
             out_nbytes /= hdr->npol;
     }
 
-    // Create the initial file or change to a new one if needed
-    if (pf->filenum == 0 || pf->rownum > pf->rows_per_file) {
+    // Create the initial file or change to a new one if needed.
+    // Stay with a single file for fold mode.
+    if (pf->filenum==0 || 
+            (mode==search && pf->rownum > pf->rows_per_file)) {
         if (pf->filenum) {
             printf("Closing file '%s'\n", pf->filename);
             fits_close_file(pf->fptr, status);
@@ -428,8 +441,12 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     if (n_written) {
         itmp = row;
         fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
-        fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
+        for (i=1; i<=row; i++) 
+            fits_write_col(pf->fptr,TINT,col,i,1,1,&itmp,status);
     }
+
+    // Flush buffers (so files are valid as they are created)
+    fits_flush_file(pf->fptr, status);
 
     // Go back to orig HDU
     fits_movabs_hdu(pf->fptr, hdu, NULL, status);
