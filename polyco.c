@@ -31,6 +31,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     pc->nmin = atoi(&buf[43]);
     pc->nc = atoi(&buf[50]);
     pc->rf = atof(&buf[55]);
+    pc->used = 0;
     for (i=0; i<pc->nc/3 + (pc->nc%3)?1:0; i++) {
         rv=fgets(buf, 90, f);
         if (rv==NULL) { return(-1); }
@@ -180,6 +181,19 @@ int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd) {
     return(0);
 }
 
+/* Check whether or not two polyco structs are the same */
+int polycos_differ(const struct polyco *p1, const struct polyco *p2) {
+    // Could add more tests as needed
+    if (strncmp(p1->psr, p2->psr,15)!=0) return(1);
+    if (p1->mjd!=p2->mjd) return(1);
+    if (p1->fmjd!=p2->mjd) return(1);
+    if (p1->rf!=p2->rf) return(1);
+    if (p1->nsite!=p2->nsite) return(1);
+    if (p1->nmin!=p2->nmin) return(1);
+    if (p1->nc!=p2->nc) return(1);
+    return(0);
+}
+
 /* Convert telescope name to tempo code */
 char telescope_name_to_code(const char *name) {
 
@@ -244,13 +258,19 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     }
 
     /* Get source name, copy file */
-    char line[256], parsrc[32]="", *key, *val, *saveptr;
+    char line[256], parsrc[32]="", *key, *val, *saveptr, *ptr;
     while (fgets(line,256,pf)!=NULL) {
-        fprintf(fout, line);
+        fprintf(fout, "%s", line);
+        while ((ptr=strchr(line,'\t'))!=NULL) *ptr=' ';
+        if ((ptr=strrchr(line,'\n')) != NULL) *ptr='\0'; 
         key = strtok_r(line, " ", &saveptr);
         val = strtok_r(NULL, " ", &saveptr);
         if (key==NULL || val==NULL) continue; 
-        if (strncmp(key, "PSR", 3)==0) { strcpy(parsrc, val); }
+        if (strncmp(key, "PSR", 3)==0) { 
+            // J or B is bad here?
+            if (val[0]=='J' || val[0]=='B') val++;
+            strcpy(parsrc, val); 
+        }
     }
     fclose(pf);
     fclose(fout);
@@ -287,7 +307,7 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     double mjd0, mjd1;
     mjd0 = (double)hdr->MJD_epoch;
     mjd1 = (double)(hdr->MJD_epoch + hdr->scanlen/86400.0);
-    sprintf(line, "echo %.8f %.8f | tempo -z -f pulsar.par > /dev/null",
+    sprintf(line, "echo %.3f %.3f | tempo -z -f pulsar.par > /dev/null",
             mjd0, mjd1);
     system(line);
 

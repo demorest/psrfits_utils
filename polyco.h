@@ -5,18 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct polyco {
-    char psr[15];
-    int mjd;
-    double fmjd;
-    double rphase;
-    double f0;
-    int nsite;
-    int nmin;
-    int nc;
-    float rf;
-    double c[15];
-};
+#include "polyco_struct.h"
 
 int read_one_pc(FILE *f, struct polyco *pc);
 int read_pc(FILE *f, struct polyco *pc, const char *psr, int mjd, double fmjd);
@@ -29,6 +18,7 @@ double psr_phase_avg(const struct polyco *pc, int mjd,
         double fmjd1, double fmjd2);
 int pc_range_check(const struct polyco *pc, int mjd, double fmjd);
 int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd);
+int polycos_differ(const struct polyco *pc1, const struct polyco *pc2);
 
 #include "psrfits.h"
 int make_polycos(const char *parfile, struct hdrinfo *hdr, char *src, 

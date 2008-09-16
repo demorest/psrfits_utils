@@ -83,6 +83,13 @@ struct subint {
     unsigned char *data;    // Ptr to the raw data itself
 };
 
+#include "polyco_struct.h"
+struct foldinfo {
+    char parfile[256];      // Parfile name for folding
+    int n_polyco_sets;      // Number of polyco sets present
+    struct polyco *pc;      // Pointer to polyco blocks
+};
+
 struct psrfits {
     char basefilename[200]; // The base filename from which to build the true filename
     char filename[200];     // Filename of the current PSRFITs file
@@ -94,14 +101,15 @@ struct psrfits {
     int rows_per_file;      // The maximum number of rows (subints) per file
     int status;             // The CFITSIO status value
     fitsfile *fptr;         // The CFITSIO file structure
+    char mode;              // Read (r) or write (w).
     struct hdrinfo hdr;
     struct subint sub;
+    struct foldinfo fold;   
 };
 
 // In write_psrfits.c
 int psrfits_create(struct psrfits *pf);
 int psrfits_write_subint(struct psrfits *pf);
-#include "polyco.h"
 int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc);
 int psrfits_write_ephem(struct psrfits *pf, FILE *parfile);
 int psrfits_close(struct psrfits *pf);

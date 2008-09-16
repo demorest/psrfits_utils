@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     struct psrfits pf;
     sprintf(pf.basefilename, argv[optind]);
     pf.filenum = fnum_start;
-    pf.status = 0;
+    pf.tot_rows = pf.N = pf.T = pf.status = 0;
     int rv = psrfits_open(&pf);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
@@ -174,12 +174,13 @@ int main(int argc, char *argv[]) {
         sprintf(pf_out.hdr.obs_mode, "PSR");
     if (source[0]!='\0') { strncpy(pf_out.hdr.source, source, 24); }
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
+    strncpy(pf_out.fold.parfile,par_file,255); pf_out.fold.parfile[255]='\0';
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;
     pf_out.hdr.nbin=nbin;
     pf_out.sub.FITS_typecode = TFLOAT;
-    pf_out.sub.bytes_per_subint = 
+    pf_out.sub.bytes_per_subint = sizeof(float) * 
         pf_out.hdr.nchan * pf_out.hdr.npol * pf_out.hdr.nbin;
     rv = psrfits_create(&pf_out);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
@@ -197,10 +198,7 @@ int main(int argc, char *argv[]) {
             * pf.hdr.nchan * pf.hdr.npol);
     pf_out.sub.dat_scales  = (float *)malloc(sizeof(float) 
             * pf.hdr.nchan * pf.hdr.npol);
-    /* Now see later thread management section for input data buffer */
-    //pf.sub.data  = (unsigned char *)malloc(pf.sub.bytes_per_subint);
-    pf_out.sub.data  = (unsigned char *)malloc(sizeof(float) 
-            * pf_out.sub.bytes_per_subint);
+    pf_out.sub.data  = (unsigned char *)malloc(pf_out.sub.bytes_per_subint);
 
     /* Output scale/offset */
     int i, ipol, ichan;
@@ -211,6 +209,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Found backend=GUPPI, setting offset_uv=%f\n",
                 offset_uv);
     }
+    // TODO: copy these from the input file
     for (ipol=0; ipol<pf.hdr.npol; ipol++) {
         for (ichan=0; ichan<pf.hdr.nchan; ichan++) {
             float offs = 0.0;
@@ -220,20 +219,6 @@ int main(int argc, char *argv[]) {
         }
     }
     for (i=0; i<pf.hdr.nchan; i++) { pf_out.sub.dat_weights[i]=1.0; }
-
-    /* Try writing par file to output, else remove ephem table */
-    if (par_file[0]!='\0') {
-        FILE *par = fopen(par_file,"r");
-        if (par==NULL) {
-            fprintf(stderr, "Error opening par file %s\n", par_file);
-            exit(1);
-        }
-        rv = psrfits_write_ephem(&pf_out, par);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    } else {
-        rv = psrfits_remove_ephem(&pf_out);
-        if (rv) { fits_report_error(stderr, rv); exit(1); }
-    }
 
     /* Read or make polycos */
     int npc=0, ipc=0;
@@ -274,16 +259,9 @@ int main(int argc, char *argv[]) {
         pc[0].nc = 1;
         pc[0].rf = pf.hdr.fctr;
         pc[0].c[0] = 0.0;
+        pc[0].used = 0;
         npc = 1;
     }
-
-    /* For now, just write all polycos (except in cal mode) */
-    if (cal)
-        rv = psrfits_remove_polycos(&pf_out);
-    else {
-        rv = psrfits_write_polycos(&pf_out, pc, npc);
-    }
-    if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     /* Alloc total fold buf */
     struct foldbuf fb;
@@ -370,6 +348,7 @@ int main(int argc, char *argv[]) {
         } else {
             ipc = 0;
         }
+        pc[ipc].used = 1; // Mark this polyco set as used for folding
 
         /* TODO: deal with scale/offset */
 
@@ -442,7 +421,6 @@ int main(int argc, char *argv[]) {
 
             /* Set next output time */
             fmjd_next = fmjd + tfold/86400.0;
-            if (!quiet) printf("\rWrote subint   \n");
         }
 
 
@@ -457,6 +435,14 @@ int main(int argc, char *argv[]) {
     /* Join any running threads */
     for (i=0; i<cur_thread; i++)  
         if (thread_id[i]) pthread_join(thread_id[i], NULL);
+
+    /* Write used polycos (except in cal mode) */
+    if (cal)
+        rv = psrfits_remove_polycos(&pf_out);
+    else {
+        rv = psrfits_write_polycos(&pf_out, pc, npc);
+    }
+    if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     psrfits_close(&pf_out);
     psrfits_close(&pf);

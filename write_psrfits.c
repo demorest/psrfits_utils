@@ -29,9 +29,11 @@ int psrfits_create(struct psrfits *pf) {
     double dtmp;
     char ctmp[40];
     struct hdrinfo *hdr;
+    struct foldinfo *fld;
 
     hdr = &(pf->hdr);        // dereference the ptr to the header struct
     status = &(pf->status);  // dereference the ptr to the CFITSIO status
+    fld = &(pf->fold);       // ptr to foldinfo struct
 
     // Figure out what mode this is 
     int mode=0;
@@ -52,6 +54,7 @@ int psrfits_create(struct psrfits *pf) {
         pf->N = 0L;
         pf->T = 0.0;
         hdr->offset_subint = 0;
+        pf->mode = 'w';
     }
     pf->filenum++;
     pf->rownum = 1;
@@ -145,6 +148,35 @@ int psrfits_create(struct psrfits *pf) {
     dtmp = (double) ldtmp;
     fits_update_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, status);
+
+    // If fold mode, copy the parfile into the PSRFITS EPHEM table
+    if (mode==fold) {
+        if (strcmp("CAL",hdr->obs_mode)==0) {
+            // CAL mode has no par file, or no par file given
+            psrfits_remove_ephem(pf);
+        } else if (fld->parfile[0]=='\0') {
+            // No par file given
+            fprintf(stderr, 
+                    "psrfits_create warning:  "
+                    "Fold mode selected, but no parfile given - "
+                    "EPHEM table will be removed.\n"
+                    );
+            psrfits_remove_ephem(pf);
+        } else {
+            FILE *parfile = fopen(fld->parfile, "r");
+            if (parfile==NULL) {
+                fprintf(stderr, 
+                        "psrfits_create warning:  "
+                        "Error opening parfile %s - "
+                        "EPHEM table will be removed.\n", fld->parfile
+                        );
+                psrfits_remove_ephem(pf);
+            } else {
+                psrfits_write_ephem(pf, parfile);
+                fclose(parfile);
+            }
+        }
+    }
 
     // Go to the SUBINT HDU
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
@@ -282,7 +314,7 @@ int psrfits_write_subint(struct psrfits *pf) {
                        sub->data, status);
     } else if (mode==fold) { 
         // Fold mode writes floats for now..
-        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes, 
+        fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes/sizeof(float), 
                        sub->data, status);
     }
 
@@ -302,9 +334,16 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->rownum++;
         pf->tot_rows++;
         pf->N += hdr->nsblk / hdr->ds_time_fact;
-        pf->T = pf->N * hdr->dt * hdr->ds_time_fact;
+        pf->T += sub->tsubint;
+
+        // For fold mode, print info each subint written
+        if (mode==fold) {
+            printf("Wrote subint %d (total time %.1fs)\n", pf->rownum-1, pf->T);
+            fflush(stdout);
+        }
+
     }
-    
+
     return *status;
 }
 
@@ -325,11 +364,16 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
     char datestr[32], ctmp[32];
     char *cptr;
     fits_get_system_time(datestr, &itmp, status);
-    int i, row, col; 
-    // XXX start at end of table?
+    int i, col, n_written=0; 
+    long row;
+    fits_get_num_rows(pf->fptr, &row, status); // Start at end of table
     for (i=0; i<npc; i++) {
 
-        row = i+1;
+        // Only write polycos that were used
+        if (!pc[i].used) continue; 
+
+        // Go to next row (1-based index)
+        row++;
 
         cptr = datestr;
         fits_get_colnum(pf->fptr,CASEINSEN,"DATE_PRO",&col,status);
@@ -345,10 +389,6 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
 
         fits_get_colnum(pf->fptr,CASEINSEN,"NCOEF",&col,status);
         fits_write_col(pf->fptr,TINT,col,row,1,1,&(pc[i].nc),status);
-
-        itmp = npc;
-        fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
-        fits_write_col(pf->fptr,TINT,col,row,1,1,&itmp,status);
 
         sprintf(ctmp,"%d", pc[i].nsite); // XXX convert to letter?
         cptr = ctmp;
@@ -380,6 +420,15 @@ int psrfits_write_polycos(struct psrfits *pf, struct polyco *pc, int npc) {
 
         fits_get_colnum(pf->fptr,CASEINSEN,"COEFF",&col,status);
         fits_write_col(pf->fptr,TDOUBLE,col,row,1,pc[i].nc,pc[i].c,status);
+
+        n_written++;
+    }
+
+    // Update polyco block count, only if new info was added
+    if (n_written) {
+        itmp = row;
+        fits_get_colnum(pf->fptr,CASEINSEN,"NPBLK",&col,status);
+        fits_write_col(pf->fptr,TINT,col,1,1,row,&itmp,status);
     }
 
     // Go back to orig HDU
@@ -571,7 +620,8 @@ int psrfits_close(struct psrfits *pf) {
         fits_close_file(pf->fptr, &(pf->status));
         printf("Closing file '%s'\n", pf->filename);
     }
-    printf("Done.  Wrote %d subints (%f sec) in %d files (status = %d).\n",
-           pf->tot_rows, pf->T, pf->filenum, pf->status);
+    printf("Done.  %s %d subints (%f sec) in %d files (status = %d).\n",
+            pf->mode=='r' ? "Read" : "Wrote", 
+            pf->tot_rows, pf->T, pf->filenum, pf->status);
     return pf->status;
 }
