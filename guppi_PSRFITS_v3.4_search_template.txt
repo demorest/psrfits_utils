@@ -14,7 +14,7 @@ ANT_Z   =  3943729.348         / [m] Antenna ITRF Z-coordinate (D)
 FRONTEND= '                '   / Rx and feed ID
 NRCVR   = 2                    / Number of receiver polarisation channels
 FD_POLN = 'LIN'                / LIN or CIRC
-FD_HAND = 1                    / +/- 1. +1 is LIN:A=X,B=Y, CIRC:A=L,B=R (I)
+FD_HAND = -1                   / +/- 1. +1 is LIN:A=X,B=Y, CIRC:A=L,B=R (I)
 FD_SANG = 45.0                 / [deg] FA of E vect for equal sig in A&B (E)
 FD_XYPH = 0.0                  / [deg] Phase of A^* B for injected cal (E)
 BACKEND = 'GUPPI'              / Backend ID
