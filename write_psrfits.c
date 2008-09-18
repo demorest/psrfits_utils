@@ -7,6 +7,8 @@
 #include "psrfits.h"
 #include "polyco.h"
 
+#define DEBUGOUT 0
+
 // Define different obs modes
 static const int search=SEARCH_MODE, fold=FOLD_MODE;
 int psrfits_obs_mode(const char *obs_mode) {
@@ -545,10 +547,12 @@ int psrfits_write_ephem(struct psrfits *pf, FILE *parfile) {
             // Find column, skip/warn if this one isn't present
             fits_get_colnum(pf->fptr,CASEINSEN,key,&col,status);
             if (*status==COL_NOT_FOUND) {
+#if (DEBUGOUT)
                 fprintf(stderr, 
                         "psrfits_write_epherm warning: Couldn't find keyword %s "
                         "in ephemeris table.\n",
                         key);
+#endif
                 *status=0;
                 continue;
             }
