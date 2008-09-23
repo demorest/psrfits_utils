@@ -8,7 +8,8 @@
 /* This function is similar to psrfits_create, except it
  * deals with reading existing files.  It is assumed that
  * basename and filenum are filled in correctly to point to 
- * the first file in the set.
+ * the first file in the set OR that filename already contains
+ * the correct file name.
  */
 int psrfits_open(struct psrfits *pf) {
 
@@ -21,7 +22,8 @@ int psrfits_open(struct psrfits *pf) {
     struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
-    sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+    if (pf->filename[0]=='\0')
+        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     printf("Opening file '%s'\n", pf->filename);
     fits_open_file(&(pf->fptr), pf->filename, READONLY, status);

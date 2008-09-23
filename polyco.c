@@ -186,7 +186,7 @@ int polycos_differ(const struct polyco *p1, const struct polyco *p2) {
     // Could add more tests as needed
     if (strncmp(p1->psr, p2->psr,15)!=0) return(1);
     if (p1->mjd!=p2->mjd) return(1);
-    if (p1->fmjd!=p2->mjd) return(1);
+    if (p1->fmjd!=p2->fmjd) return(1);
     if (p1->rf!=p2->rf) return(1);
     if (p1->nsite!=p2->nsite) return(1);
     if (p1->nmin!=p2->nmin) return(1);
