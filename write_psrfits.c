@@ -618,7 +618,7 @@ int psrfits_remove_polycos(struct psrfits *pf) {
 }
 
 int psrfits_remove_ephem(struct psrfits *pf) {
-    // Delete the polyco table
+    // Delete the ephemeris table
     
     int *status = &(pf->status);
 
