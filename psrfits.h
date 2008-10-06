@@ -88,6 +88,8 @@ struct foldinfo {
     char parfile[256];      // Parfile name for folding
     int n_polyco_sets;      // Number of polyco sets present
     struct polyco *pc;      // Pointer to polyco blocks
+    int nbin;               // Requested number of bins
+    double tfold;           // Requested fold integration time
 };
 
 struct psrfits {

@@ -287,17 +287,7 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
 
     /* Fold em */
     int i, ibin;
-    float *fptr, *dptr;
-#ifdef FOLD_USE_INTRINSICS
-    int rv = posix_memalign((void *)&dptr, 64, 
-            sizeof(float) * f->npol * f->nchan);
-    if (rv) { 
-        fprintf(stderr, "Error in posix_memalign");
-        exit(1);
-    }
-#else
-    dptr = (float *)malloc(sizeof(float)*f->nchan*f->npol); 
-#endif
+    float *fptr;
     for (i=0; i<nsamp; i++) {
         ibin = (int)(phase * (double)f->nbin);
         if (ibin<0) { ibin+=f->nbin; }
@@ -317,7 +307,6 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         phase += dphase;
         if (phase>1.0) { phase -= 1.0; }
     }
-    free(dptr);
 
     return(0);
 }
