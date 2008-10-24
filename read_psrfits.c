@@ -22,7 +22,7 @@ int psrfits_open(struct psrfits *pf) {
     struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
-    if (pf->filename[0]=='\0')
+    if ((pf->filename[0]=='\0') || (pf->filenum > 1))
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     printf("Opening file '%s'\n", pf->filename);
