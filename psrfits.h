@@ -45,6 +45,7 @@ struct hdrinfo {
     double scanlen;         // Requested scan length (sec)
     double start_lst;       // Start LST (sec past 00h)
     double start_sec;       // Start time (sec past UTC 00h) 
+    double chan_dm;         // DM that each channel was de-dispersed at (pc/cm^3)
     int start_day;          // Start MJD (UTC days) (J - long integer)
     int scan_number;        // Number of scan
     int nbits;              // Number of bits per data sample 
@@ -79,7 +80,7 @@ struct subint {
     float *dat_freqs;       // Ptr to array of Centre freqs for each channel (MHz)
     float *dat_weights;     // Ptr to array of Weights for each channel
     float *dat_offsets;     // Ptr to array of offsets for each chan * pol
-    float *dat_scales;      // Ptr to array of Centre freqs for each channel (MHz)
+    float *dat_scales;      // Ptr to array of scalings for each chan * pol
     unsigned char *data;    // Ptr to the raw data itself
 };
 
