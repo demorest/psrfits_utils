@@ -28,6 +28,7 @@ DATE-OBS= '                '   / Date of observation (YYYY-MM-DDThh:mm:ss UTC)
 OBSFREQ =                    * / [MHz] Centre frequency for observation
 OBSBW   =                    * / [MHz] Bandwidth for observation
 OBSNCHAN=                    * / Number of frequency channels (original)
+CHAN_DM =                  0.0 / DM used to de-disperse each channel (pc/cm^3)
 SRC_NAME= '                '   / Source or scan ID 
 COORD_MD= 'J2000'              / Coordinate mode (J2000, GAL, ECLIP, etc.)
 EQUINOX = 2000.0               / Equinox of coords (e.g. 2000.0) 

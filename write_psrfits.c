@@ -131,6 +131,7 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
     fits_update_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
+    fits_update_key(pf->fptr, TDOUBLE, "CHAN_DM", &(hdr->chan_dm), NULL, status);
     fits_update_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
     if (strcmp("TRACK", hdr->track_mode)) {
         printf("Warning!:  We don't currently handle non-tracking observations!\n");
