@@ -159,9 +159,10 @@ long long next2_to_n(long long x)
 }
 
 
-void avg_std(char *x, int n, double *mean, double *std)
-/* For an unsigned char vector, *x, of length n, this routine  */
-/* returns the mean and variance of *x.                        */
+void avg_std(char *x, int n, double *mean, double *std, int stride)
+/* For an unsigned char vector, *x, of length n*stride, this    */
+/* routine returns the mean and variance of the n values        */  
+/* separated in memory by stride bytes (contiguous is stride=1) */
 {
     int ii;
     double an = 0.0, an1 = 0.0, dx, var;
@@ -181,7 +182,7 @@ void avg_std(char *x, int n, double *mean, double *std)
     for (ii = 1; ii < n; ii++) {
         an = (double) (ii + 1);
         an1 = (double) (ii);
-        dx = ((double) x[ii] - *mean) / an;
+        dx = ((double) x[ii*stride] - *mean) / an;
         var += an * an1 * dx * dx;
         *mean += dx;
     }

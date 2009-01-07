@@ -125,5 +125,6 @@ int psrfits_remove_ephem(struct psrfits *pf);
 // In read_psrfits.c
 int psrfits_open(struct psrfits *pf);
 int psrfits_read_subint(struct psrfits *pf);
+int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer);
 
 #endif
