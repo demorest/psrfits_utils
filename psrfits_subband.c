@@ -65,12 +65,12 @@ static void print_percent_complete(int current, int number, int reset)
 }
 
 void get_chan_stats(struct psrfits *pfi, struct subband_info *si){   
-    int ii, offset=0;
+    int ii;
     double avg, std;
 
-    for (ii = 0 ; ii < si->bufwid ; ii++, offset++) {
+    for (ii = 0 ; ii < si->bufwid ; ii++) {
         // Only use 1/8 of the total length in order to speed things up
-        avg_std((char *)pfi->sub.data+offset, si->buflen/8, &avg, &std, si->bufwid);
+        avg_std((char *)(pfi->sub.data+ii), si->buflen/8, &avg, &std, si->bufwid);
         si->chan_avgs[ii] = avg;
         si->chan_stds[ii] = std;
     }
@@ -82,7 +82,7 @@ void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
     double avg, std;
 
     for (ii = 0 ; ii < stride ; ii++) {
-        avg_std((char *)pfo->sub.data+ii, si->buflen, &avg, &std, stride);
+        avg_std((char *)(pfo->sub.data+ii), si->buflen, &avg, &std, stride);
     }
 }
 
@@ -168,9 +168,8 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
         for (jj = 0 ; jj < out_bufwid ; jj++) {
             itmp = offset;  // starting value for "rounding"
             // Iterate over the input chans/pols 
-            for (kk = 0 ; kk < dsfact ; kk++, idelays++, indata++) {
+            for (kk = 0 ; kk < dsfact ; kk++, idelays++, indata++)
                 itmp += *(indata + *idelays * in_bufwid);
-            }
             // The following adds 1/2 of dsfact to the total (which allows
             // for rounding-type behavior) and then divides by dsfact (via
             // a bit shift of the appropriate number of bits, since dsfact
@@ -231,7 +230,7 @@ void init_subbanding(int nsub, double dm,
 
     // Compute the subband properties, DM delays and offsets
     lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.orig_df * 0.5;
-    for (ii = 0, cindex  = 0 ; ii < si->nsub ; ii++) {
+    for (ii = 0, cindex = 0 ; ii < si->nsub ; ii++) {
         dtmp = lofreq + ((double)ii + 0.5) * si->sub_df;
         si->sub_freqs[ii] = dtmp;
         si->sub_delays[ii] = delay_from_dm(si->dm, dtmp);
@@ -353,7 +352,7 @@ int main(int argc, char *argv[]) {
     do {
         // Put the overlapping parts from the next block into si->buffer
         char *ptr = (char *)(pfi.sub.data + si.buflen * si.bufwid);
-        if (padding > 0)
+        if (padding==0)
             stat = psrfits_read_part_DATA(&pfi, si.max_overlap, ptr);
         if (stat || padding) { // Need to use padding since we ran out of data
             printf("Adding next-block padding...\n");
@@ -373,16 +372,16 @@ int main(int argc, char *argv[]) {
 
         // Write the new row to the output file
 // TODO:  update the other row-based params as well
-        pfo.sub.offs = ((pfo.rownum-1)+0.5) * pfo.sub.tsubint;
+        pfo.sub.offs = (pfo.rownum-0.5) * pfo.sub.tsubint;
         psrfits_write_subint(&pfo);
 
         // Break out of the loop here if stat is set
+// TODO:  this should only happen for the last file, not missing rows... 
         if (stat) break;
 
         // shift the last part of the current row into the "last-row" 
         // part of the data buffer
-        memcpy(si.buffer, 
-               pfi.sub.data + (si.buflen - si.max_overlap) * si.bufwid,
+        memcpy(si.buffer, si.buffer + si.buflen * si.bufwid, 
                si.max_overlap * si.bufwid);
 
         // Read the next row (or padding)
@@ -390,9 +389,9 @@ int main(int argc, char *argv[]) {
 
     } while (pfi.status == 0);
 
-    psrfits_close(&pfi);
+    rv = psrfits_close(&pfi);
     if (rv) { fits_report_error(stderr, rv); }
-    psrfits_close(&pfo);
+    rv = psrfits_close(&pfo);
     if (rv) { fits_report_error(stderr, rv); }
     exit(0);
 }
