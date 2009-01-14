@@ -22,15 +22,21 @@ int psrfits_open(struct psrfits *pf) {
     struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
-    if ((pf->filename[0]=='\0') || (pf->filenum > 1))
+    sprintf(ctmp, "%s_%04d.fits", pf->basefilename, pf->filenum-1);
+    if (pf->filename[0]=='\0' || 
+        ((pf->filenum > 1) && (strcmp(ctmp, pf->filename)==0)))
+        // The 2nd test checks to see if we are creating filenames ourselves
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
-    printf("Opening file '%s'\n", pf->filename);
     fits_open_file(&(pf->fptr), pf->filename, READONLY, status);
     pf->mode = 'r';
 
     // If file no exist, exit now
-    if (*status) { return *status; }
+    if (*status) {
+        return *status; 
+    } else {
+        printf("Opened file '%s'\n", pf->filename);
+    }
 
     // Move to main HDU
     fits_movabs_hdu(pf->fptr, 1, NULL, status);
@@ -60,6 +66,7 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
     fits_read_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
     fits_read_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
+    hdr->orig_df = hdr->BW / hdr->orig_nchan;
     fits_read_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
     fits_read_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
     // TODO warn if not TRACK?
