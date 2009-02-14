@@ -14,6 +14,8 @@ Int    -nsub     nsub     {Number of output frequency subbands} \
 Int    -dstime   dstime   {Power-of-2 number of samples to average in time} \
     -r 1 128 -d 1
 Flag   -bytes    bytes    {Make the raw data unsigned chars instead of signed shorts}
+Flag   -onlyI    inlyI    {Only output total intensity data}
+String -weights  wgtsfile {Filename containing ASCII list of channels and weights to use}
 
 # Rest of command line:
 Rest infile {Input file name(s) of the PSRFITs datafiles} \

@@ -23,6 +23,12 @@ typedef struct s_Cmdline {
   int dstimeC;
   /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
   char bytesP;
+  /***** -onlyI: Only output total intensity data */
+  char inlyIP;
+  /***** -weights: Filename containing ASCII list of channels and weights to use */
+  char wgtsfileP;
+  char* wgtsfile;
+  int wgtsfileC;
   /***** uninterpreted command line parameters */
   int argc;
   /*@null*/char **argv;
@@ -34,6 +40,8 @@ typedef struct s_Cmdline {
 extern char *Program;
 extern void usage(void);
 extern /*@shared*/Cmdline *parseCmdline(int argc, char **argv);
+
+extern void showOptionValues(void);
 
 #endif
 

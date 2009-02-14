@@ -32,14 +32,17 @@ struct subband_info {
     double *sub_delays;
     double *chan_delays;
     int *idelays;
+    int *numnonzero;
     float *sub_freqs;
     float *weights;
+    float *userwgts;
     float *offsets;
     float *scales;
     float *chan_avgs;
     float *chan_stds;
     unsigned char *buffer;
     unsigned char *outbuffer;
+    unsigned char *intwgts;
 };
 
 
@@ -158,23 +161,20 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
     const int dsfact = si->chan_per_sub;
     const int in_bufwid = si->bufwid;
     const int out_bufwid = si->bufwid / si->chan_per_sub;
-    const int offset = dsfact >> 1;
-    const int shift = ffs(dsfact) - 1; // dsfact's power of 2
 
     // Iterate over the times 
     for (ii = 0 ; ii < si->buflen ; ii++) {
         int *idelays = si->idelays;
+        int *numnonzero = si->numnonzero;
+        unsigned char *intwgts = si->intwgts;
         // Iterate over the output chans/pols 
-        for (jj = 0 ; jj < out_bufwid ; jj++) {
-            itmp = offset;  // starting value for "rounding"
+        for (jj = 0 ; jj < out_bufwid ; jj++, numnonzero++) {
+            itmp = *numnonzero / 2;  // starting value for "rounding"
             // Iterate over the input chans/pols 
-            for (kk = 0 ; kk < dsfact ; kk++, idelays++, indata++)
-                itmp += *(indata + *idelays * in_bufwid);
-            // The following adds 1/2 of dsfact to the total (which allows
-            // for rounding-type behavior) and then divides by dsfact (via
-            // a bit shift of the appropriate number of bits, since dsfact
-            // should be a power-of-two).
-            *outdata++ = itmp >> shift;
+            for (kk = 0 ; kk < dsfact ; kk++, idelays++, intwgts++, indata++)
+                itmp += (*intwgts) ? *(indata + *idelays * in_bufwid) : 0;
+            // Now convert the sum to an average of the good channels
+            *outdata++ = (*numnonzero) ? itmp / *numnonzero : 0;
         }
     }
 }
@@ -204,6 +204,8 @@ void init_subbanding(int nsub, double dm,
     si->chan_delays = (double *)malloc(sizeof(double) * si->nchan);
     si->sub_delays = (double *)malloc(sizeof(double) * si->nsub);
     si->idelays = (int *)malloc(sizeof(int) * si->nchan * si->npol);
+    // Make this artificially long to help with the subbanding code
+    si->numnonzero = (int *)malloc(sizeof(int) * si->nsub * si->npol);
     si->weights = (float *)malloc(sizeof(float) * si->nsub);
     si->offsets = (float *)malloc(sizeof(float) * si->nsub * si->npol);
     si->scales = (float *)malloc(sizeof(float) * si->nsub * si->npol);
@@ -213,6 +215,7 @@ void init_subbanding(int nsub, double dm,
     /* Alloc data buffers for the input PSRFITS file */
     pfi->sub.dat_freqs = (float *)malloc(sizeof(float) * pfi->hdr.nchan);
     pfi->sub.dat_weights = (float *)malloc(sizeof(float) * pfi->hdr.nchan);
+    si->intwgts = (unsigned char *)malloc(pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.dat_offsets = (float *)malloc(sizeof(float)
                                           * pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.dat_scales  = (float *)malloc(sizeof(float)
@@ -223,20 +226,30 @@ void init_subbanding(int nsub, double dm,
     // Read the first row of data
     psrfits_read_subint(pfi);
 
+    if (si->userwgts) {
+        free(pfi->sub.dat_weights);
+        pfi->sub.dat_weights = si->userwgts;
+    }
+
     // Reset the read counters since we'll re-read
     pfi->rownum--;
     pfi->tot_rows--;
     pfi->N -= pfi->hdr.nsblk;
 
+    // Check to see if all the weights are either 0 or 1, warn if not
+    for (ii = 0 ; ii < pfi->hdr.nchan ; ii++) {
+        if ((pfi->sub.dat_weights[ii]!=0.0) && (pfi->sub.dat_weights[ii]!=1.0)) {
+            printf("Warning!:  The input data have non 0 or 1 valued weights!\n"
+                   "           This will be handled improperly by this code!\n");
+        }
+    }
+    
     // Compute the subband properties, DM delays and offsets
     lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.orig_df * 0.5;
     for (ii = 0, cindex = 0 ; ii < si->nsub ; ii++) {
         dtmp = lofreq + ((double)ii + 0.5) * si->sub_df;
         si->sub_freqs[ii] = dtmp;
         si->sub_delays[ii] = delay_from_dm(si->dm, dtmp);
-// TODO:  set these (weights, offsets, scales) based on input data
-// TODO:  also, adjust for the U and V 0.5 offsets?
-        si->weights[ii] = 1.0;
         for (jj = 0 ; jj < si->npol ; jj++) {
             si->offsets[jj*si->nsub+ii] = 0.0;
             si->scales[jj*si->nsub+ii] = 1.0;
@@ -248,10 +261,23 @@ void init_subbanding(int nsub, double dm,
                                                     pfi->sub.dat_freqs[cindex]);
             si->chan_delays[cindex] -= si->sub_delays[ii];
             si->idelays[cindex] = (int)rint(si->chan_delays[cindex] / pfi->hdr.dt);
-            // Copy the delays if we have more than 1 poln
+            // Count how many of the channels in this subband have 
+            if (pfi->sub.dat_weights[cindex]>0.5) {
+                si->numnonzero[ii]++;
+                si->intwgts[cindex] = 1;
+            } else {
+                si->intwgts[cindex] = 0;
+            }
+            // Copy the delays and intwgts if we have more than 1 poln
             for (kk = 1 ; kk < si->npol ; kk++) {
                 si->idelays[cindex+kk*si->nchan] = si->idelays[cindex];
+                si->intwgts[cindex+kk*si->nchan] = si->intwgts[cindex];
             }
+        }
+        si->weights[ii] = (float)si->numnonzero[ii] / (float)si->chan_per_sub;
+        // Copy the numnonzero if we have more than 1 poln
+        for (kk = 1 ; kk < si->npol ; kk++) {
+            si->numnonzero[ii+kk*si->nsub] = si->numnonzero[ii];
         }
     }
 
@@ -316,11 +342,49 @@ void set_output_vals(struct psrfits *pfi,
 }
 
 
+void read_weights(char *filenm, int *numchan, float **weights)
+{
+    FILE *infile;
+    int N, chan;
+    float wgt;
+    char line[80];
+
+    infile = fopen(filenm, "r");
+
+    // Read the input file once to count the lines
+    N = 0;
+    while (!feof(infile)){
+        fgets(line, 80, infile);
+        if (line[0]!='#') {
+            sscanf(line, "%d %f\n", &chan, &wgt);
+            N++;
+        }
+    }
+    N--;
+    *numchan = N;
+
+    // Allocate the output arrays
+    *weights = (float *)malloc(N * sizeof(float));
+
+    // Rewind and read the EVENTs for real
+    rewind(infile);
+    N = 0;
+    while (!feof(infile)){
+        fgets(line, 80, infile);
+        if (line[0]!='#') {
+            sscanf(line, "%d %f\n", &chan, *weights+N);
+            N++;
+        }
+    }
+    fclose(infile);
+}
+
+
 int main(int argc, char *argv[]) {
     Cmdline *cmd;
     struct psrfits pfi, pfo;
     struct subband_info si;
-    int stat=0, padding=0;
+    int stat=0, padding=0, userN=0;
 
     // Call usage() if we have no command line arguments
     if (argc == 1) {
@@ -339,6 +403,18 @@ int main(int argc, char *argv[]) {
     sprintf(pfi.basefilename, cmd->argv[0]);
     int rv = psrfits_open(&pfi);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
+
+    // Read the user weights if requested
+    si.userwgts = NULL;
+    if (cmd->wgtsfileP ) {
+        read_weights(cmd->wgtsfile, &userN, &si.userwgts);
+        if (userN != pfi.hdr.nchan) {
+            printf("Error!:  Input data has %d channels, but '%s' contains only %d weights!\n",
+                   pfi.hdr.nchan, cmd->wgtsfile, userN);
+            exit(0);
+        }
+        printf("Overriding input channel weights with those in '%s'\n", cmd->wgtsfile);
+    }
 
     // Initialize the subbanding
     // (including reading the first row of data and
