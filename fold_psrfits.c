@@ -334,6 +334,9 @@ int main(int argc, char *argv[]) {
             offs0 = pf.sub.offs - 0.5*pf.sub.tsubint;
             offs1 = pf.sub.offs + 0.5*pf.sub.tsubint;
             first=0;
+            for (i=0; i<pf.hdr.nchan; i++) { 
+                pf_out.sub.dat_weights[i]=pf.sub.dat_weights[i];
+            }
         }
 
         /* Keep track of timestamp */
