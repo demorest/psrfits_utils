@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_subband" 1 "13Feb09" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_subband" 1 "15Feb09" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -27,6 +27,8 @@ Partially de-disperse and subband PSRFITS search-mode data.
 [-dm dm]
 [-nsub nsub]
 [-dstime dstime]
+[-filetime filetime]
+[-filelen filelen]
 [-bytes]
 [-onlyI]
 [-weights wgtsfile]
@@ -51,6 +53,14 @@ Power-of-2 number of samples to average in time,
 1 Int value between 1 and 128.
 .br
 Default: `1'
+.IP -filetime
+Desired length of the resulting files in sec,
+.br
+1 Float value between 0.0 and 100000.0.
+.IP -filelen
+Desired length of the resulting files in GB,
+.br
+1 Float value between 0.0 and 1000.0.
 .IP -bytes
 Make the raw data unsigned chars instead of signed shorts.
 .IP -onlyI

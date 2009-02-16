@@ -19,7 +19,7 @@ THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
 	       guppi_psrfits_thread.o guppi_fold_thread.o \
 	       guppi_null_thread.o
 LIBS = -L$(OPT64)/lib -lcfitsio -L$(PRESTO)/lib -lsla -lm -lpthread
-all: $(PROGS) $(THREAD_PROGS) guppi_daq psrfits_subband psrfits_subband_orig
+all: $(PROGS) $(THREAD_PROGS) guppi_daq psrfits_subband
 clean:
 	rm -f $(PROGS) $(THREAD_PROGS) guppi_daq psrfits.tgz *~ *.o test_psrfits_0*.fits
 INSTALL_DIR = ../bin
@@ -35,8 +35,6 @@ guppi_daq: guppi_daq.c guppi_daq_cmd.o $(THREAD_OBJS) $(OBJS)
 find_dropped_blocks: find_dropped_blocks.o 
 	$(CC) $(CFLAGS) $< -o $@ -L$(OPT64)/lib -lcfitsio -lm
 psrfits_subband: psrfits_subband.c psrfits_subband_cmd.o $(OBJS)
-	$(CC) $(CFLAGS) $< -o $@ psrfits_subband_cmd.o $(OBJS) $(LIBS)
-psrfits_subband_orig: psrfits_subband_orig.c psrfits_subband_cmd.o $(OBJS)
 	$(CC) $(CFLAGS) $< -o $@ psrfits_subband_cmd.o $(OBJS) $(LIBS)
 .SECONDEXPANSION:
 $(PROGS): $$@.c $(OBJS)

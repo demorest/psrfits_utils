@@ -60,7 +60,7 @@ static void print_percent_complete(int current, int number, int reset)
       if (newper > 100)
          newper = 100;
       if (newper > oldper) {
-         printf("\r%3d%%", newper);
+         printf("\r%3d%% ", newper);
          fflush(stdout);
          oldper = newper;
       }
@@ -102,7 +102,7 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
         firsttime = 0;
     }
 
-    print_percent_complete(pfi->rownum-1, pfi->rows_per_file, 
+    print_percent_complete(pfi->rownum, pfi->rows_per_file, 
                            pfi->rownum==1 ? 1 : 0);
 
     if (num_pad_blocks==0) {  // Try to read the PSRFITS file
@@ -318,9 +318,24 @@ void init_subbanding(int nsub, double dm,
 
 void set_output_vals(struct psrfits *pfi, 
                      struct psrfits *pfo, 
-                     struct subband_info *si) {
+                     struct subband_info *si,
+                     Cmdline *cmd) {
     // Copy everything
     *pfo = *pfi;
+    // Determine the length of the outputfiles to use
+    if (cmd->filetimeP) {
+        pfo->rows_per_file = 10 * \
+            (int) rint(0.1 * (cmd->filetime / pfi->sub.tsubint));
+    } else if (cmd->filelenP) {        
+        long long filelen;
+        int bytes_per_subint;
+        filelen = cmd->filelen * (1L<<30);  // In GB
+        bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
+                            pfo->hdr.npol * pfo->hdr.nsblk) / (8 * si->chan_per_sub);
+        pfo->rows_per_file = filelen / bytes_per_subint;
+    } else {  // By default, keep the filesize roughly constant
+        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub;
+    }
     pfo->filenum = 0; // This causes the output files to be created
     pfo->filename[0] = '\0';
     pfo->rownum = 1;
@@ -422,7 +437,7 @@ int main(int argc, char *argv[]) {
     init_subbanding(cmd->nsub, cmd->dm, &pfi, &si);
 
     // Update the output PSRFITS structure
-    set_output_vals(&pfi, &pfo, &si);
+    set_output_vals(&pfi, &pfo, &si, cmd);
 
     // Loop through the data
     do {
@@ -447,8 +462,7 @@ int main(int argc, char *argv[]) {
         //get_sub_stats(&pfo, &si);
 
         // Write the new row to the output file
-// TODO:  update the other row-based params as well
-        pfo.sub.offs = (pfo.rownum-0.5) * pfo.sub.tsubint;
+        pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
         psrfits_write_subint(&pfo);
 
         // Break out of the loop here if stat is set

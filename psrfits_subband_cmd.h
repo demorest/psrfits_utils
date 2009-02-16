@@ -21,6 +21,14 @@ typedef struct s_Cmdline {
   char dstimeP;
   int dstime;
   int dstimeC;
+  /***** -filetime: Desired length of the resulting files in sec */
+  char filetimeP;
+  float filetime;
+  int filetimeC;
+  /***** -filelen: Desired length of the resulting files in GB */
+  char filelenP;
+  float filelen;
+  int filelenC;
   /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
   char bytesP;
   /***** -onlyI: Only output total intensity data */
