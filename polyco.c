@@ -106,10 +106,15 @@ int read_all_pc(FILE *f, struct polyco **pc) {
 int select_pc(const struct polyco *pc, int npc, const char *psr,
         int imjd, double fmjd) {
     int ipc;
-    char *tmp = psr;
+    const char *tmp = psr;
     if (tmp[0]=='J' || tmp[0]=='B') tmp++;
+    // Verbose
+    //fprintf(stderr, "Looking for polycos with src='%s' imjd=%d fmjd=%f\n",
+    //        tmp, imjd, fmjd);
     for (ipc=0; ipc<npc; ipc++) {
-        if (psr!=NULL) { if (strcmp(pc[ipc].psr,psr)!=0) { continue; } }
+        //fprintf(stderr, "  read src='%s' imjd=%d fmjd=%f span=%d\n",
+        //        pc[ipc].psr, pc[ipc].mjd, pc[ipc].fmjd, pc[ipc].nmin);
+        if (psr!=NULL) { if (strcmp(pc[ipc].psr,tmp)!=0) { continue; } }
         if (pc_out_of_range(&pc[ipc],imjd,fmjd)==0) { break; }
     }
     if (ipc<npc) { return(ipc); }
@@ -305,8 +310,8 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
 
     /* Call tempo */
     double mjd0, mjd1;
-    mjd0 = (double)hdr->MJD_epoch;
-    mjd1 = (double)(hdr->MJD_epoch + hdr->scanlen/86400.0);
+    mjd0 = (double)hdr->MJD_epoch - 0.5;
+    mjd1 = (double)(hdr->MJD_epoch + hdr->scanlen/86400.0 + 0.5);
     sprintf(line, "echo %.3f %.3f | tempo -z -f pulsar.par > /dev/null",
             mjd0, mjd1);
     system(line);
