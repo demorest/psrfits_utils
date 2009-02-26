@@ -25,7 +25,7 @@ clean:
 INSTALL_DIR = ../bin
 install: $(PROGS) $(THREAD_PROGS) guppi_daq psrfits_subband
 	mkdir -p $(INSTALL_DIR) && \
-	cp -f -p $(PROGS) $(THREAD_PROGS) guppi_daq psrfits_subband $(INSTALL_DIR)
+	cp -f $(PROGS) $(THREAD_PROGS) guppi_daq psrfits_subband $(INSTALL_DIR)
 psrfits.tgz: psrfits.h read_psrfits.c write_psrfits.c polyco.c polyco.h \
 	guppi_PSRFITS_v3.4_fold_template.txt \
 	guppi_PSRFITS_v3.4_search_template.txt
