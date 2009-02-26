@@ -21,6 +21,14 @@ typedef struct s_Cmdline {
   char dstimeP;
   int dstime;
   int dstimeC;
+  /***** -startfile: Starting file number of sequence */
+  char startfileP;
+  int startfile;
+  int startfileC;
+  /***** -numfiles: Number of files to process */
+  char numfilesP;
+  int numfiles;
+  int numfilesC;
   /***** -filetime: Desired length of the resulting files in sec */
   char filetimeP;
   float filetime;

@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_subband" 1 "15Feb09" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_subband" 1 "25Feb09" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -27,6 +27,8 @@ Partially de-disperse and subband PSRFITS search-mode data.
 [-dm dm]
 [-nsub nsub]
 [-dstime dstime]
+[-startfile startfile]
+[-numfiles numfiles]
 [-filetime filetime]
 [-filelen filelen]
 [-bytes]
@@ -53,6 +55,16 @@ Power-of-2 number of samples to average in time,
 1 Int value between 1 and 128.
 .br
 Default: `1'
+.IP -startfile
+Starting file number of sequence,
+.br
+1 Int value between 1 and 2000.
+.br
+Default: `1'
+.IP -numfiles
+Number of files to process,
+.br
+1 Int value between 1 and 2000.
 .IP -filetime
 Desired length of the resulting files in sec,
 .br

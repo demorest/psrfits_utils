@@ -16,6 +16,7 @@
 extern double delay_from_dm(double dm, double freq_emitted);
 extern int split_root_suffix(char *input, char **root, char **suffix);
 extern void avg_std(char *x, int n, double *mean, double *std, int stride);
+extern void split_path_file(char *input, char **path, char **file);
 
 struct subband_info {
     int nsub;
@@ -105,6 +106,10 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
     print_percent_complete(pfi->rownum, pfi->rows_per_file, 
                            pfi->rownum==1 ? 1 : 0);
 
+#if 0
+    printf("row %d\n", pfi->rownum);
+#endif
+
     if (num_pad_blocks==0) {  // Try to read the PSRFITS file
 
         // Read the current row of data
@@ -116,13 +121,15 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
                 num_pad_blocks = 1;
             } else { // Missing row(s)
                 dnum_blocks = diff_offs/row_duration - 1.0;
-                num_pad_blocks = (int)(dnum_blocks + 1e-12);
+                num_pad_blocks = (int)(dnum_blocks + 1e-7);
+                pfi->rownum--;   // Will re-read when no more padding
+                pfi->tot_rows--; // Only count "real" rows towards tot_rows
 #if 1
                 printf("At row %d, found %d dropped rows.\n", 
                        pfi->rownum, num_pad_blocks);
+                printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+                       pfi->tot_rows);
 #endif        
-                pfi->rownum--;   // Will re-read when no more padding
-                pfi->tot_rows--; // Only count "real" rows towards tot_rows
                 pfi->N -= pfi->hdr.nsblk;  // Will be re-added below for padding
             }
             // Now fill the main part of si->buffer with the chan_avgs so that
@@ -341,7 +348,13 @@ void set_output_vals(struct psrfits *pfi,
     pfo->rownum = 1;
     pfo->tot_rows = 0;
     pfo->N = 0;
-    sprintf(pfo->basefilename, "%s_subs", pfi->basefilename);
+    {
+        char *inpath, *infile;
+        split_path_file(pfi->basefilename, &inpath, &infile);
+        sprintf(pfo->basefilename, "%s_subs", infile);
+        free(inpath);
+        free(infile);
+    }
     // Reset different params
     pfo->sub.dat_freqs = si->sub_freqs;
     pfo->sub.dat_weights = si->weights;
@@ -349,10 +362,6 @@ void set_output_vals(struct psrfits *pfi,
     pfo->sub.dat_scales  = si->scales;
     pfo->hdr.ds_freq_fact = si->chan_per_sub;
     pfo->hdr.chan_dm = si->dm;
-    //pfo->hdr.nchan = si->nsub;
-    //pfo->hdr.npol = si->npol;
-    //pfo->sub.bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
-    //                             pfo->hdr.npol * pfo->hdr.nsblk) / 8;
     pfo->sub.data = si->outbuffer;
 }
 
@@ -413,7 +422,7 @@ int main(int argc, char *argv[]) {
 
     // Open the input PSRFITs files
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
-    pfi.filenum = 1;
+    pfi.filenum = cmd->startfile;
     pfi.filename[0] = '\0';
     sprintf(pfi.basefilename, cmd->argv[0]);
     int rv = psrfits_open(&pfi);
@@ -446,7 +455,8 @@ int main(int argc, char *argv[]) {
         if (padding==0)
             stat = psrfits_read_part_DATA(&pfi, si.max_overlap, ptr);
         if (stat || padding) { // Need to use padding since we ran out of data
-            printf("Adding next-block padding...\n");
+            printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+                   pfi.tot_rows);
             int ii, jj;
             // Now fill the last part of si->buffer with the chan_avgs so that
             // it acts like a correctly read block (or row)

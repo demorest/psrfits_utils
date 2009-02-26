@@ -34,6 +34,14 @@ static Cmdline cmd = {
   /* dstimeP = */ 1,
   /* dstime = */ 1,
   /* dstimeC = */ 1,
+  /***** -startfile: Starting file number of sequence */
+  /* startfileP = */ 1,
+  /* startfile = */ 1,
+  /* startfileC = */ 1,
+  /***** -numfiles: Number of files to process */
+  /* numfilesP = */ 0,
+  /* numfiles = */ (int)0,
+  /* numfilesC = */ 0,
   /***** -filetime: Desired length of the resulting files in sec */
   /* filetimeP = */ 0,
   /* filetime = */ (float)0,
@@ -789,6 +797,30 @@ showOptionValues(void)
     }
   }
 
+  /***** -startfile: Starting file number of sequence */
+  if( !cmd.startfileP ) {
+    printf("-startfile not found.\n");
+  } else {
+    printf("-startfile found:\n");
+    if( !cmd.startfileC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.startfile);
+    }
+  }
+
+  /***** -numfiles: Number of files to process */
+  if( !cmd.numfilesP ) {
+    printf("-numfiles not found.\n");
+  } else {
+    printf("-numfiles found:\n");
+    if( !cmd.numfilesC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.numfiles);
+    }
+  }
+
   /***** -filetime: Desired length of the resulting files in sec */
   if( !cmd.filetimeP ) {
     printf("-filetime not found.\n");
@@ -853,29 +885,34 @@ showOptionValues(void)
 void
 usage(void)
 {
-  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-filetime filetime] [-filelen filelen] [-bytes] [-onlyI] [-weights wgtsfile] [--] infile ...\n");
+  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-startfile startfile] [-numfiles numfiles] [-filetime filetime] [-filelen filelen] [-bytes] [-onlyI] [-weights wgtsfile] [--] infile ...\n");
   fprintf(stderr,"%s","      \n");
   fprintf(stderr,"%s","      Partially de-disperse and subband PSRFITS search-mode data.\n");
   fprintf(stderr,"%s","      \n");
-  fprintf(stderr,"%s","          -dm: Dispersion measure to use for the subband de-dispersion\n");
-  fprintf(stderr,"%s","               1 double value between 0.0 and 10000.0\n");
-  fprintf(stderr,"%s","               default: `0.0'\n");
-  fprintf(stderr,"%s","        -nsub: Number of output frequency subbands\n");
-  fprintf(stderr,"%s","               1 int value between 1 and 4096\n");
-  fprintf(stderr,"%s","      -dstime: Power-of-2 number of samples to average in time\n");
-  fprintf(stderr,"%s","               1 int value between 1 and 128\n");
-  fprintf(stderr,"%s","               default: `1'\n");
-  fprintf(stderr,"%s","    -filetime: Desired length of the resulting files in sec\n");
-  fprintf(stderr,"%s","               1 float value between 0.0 and 100000.0\n");
-  fprintf(stderr,"%s","     -filelen: Desired length of the resulting files in GB\n");
-  fprintf(stderr,"%s","               1 float value between 0.0 and 1000.0\n");
-  fprintf(stderr,"%s","       -bytes: Make the raw data unsigned chars instead of signed shorts\n");
-  fprintf(stderr,"%s","       -onlyI: Only output total intensity data\n");
-  fprintf(stderr,"%s","     -weights: Filename containing ASCII list of channels and weights to use\n");
-  fprintf(stderr,"%s","               1 char* value\n");
-  fprintf(stderr,"%s","       infile: Input file name(s) of the PSRFITs datafiles\n");
-  fprintf(stderr,"%s","               1...2000 values\n");
-  fprintf(stderr,"%s","  version: 15Feb09\n");
+  fprintf(stderr,"%s","           -dm: Dispersion measure to use for the subband de-dispersion\n");
+  fprintf(stderr,"%s","                1 double value between 0.0 and 10000.0\n");
+  fprintf(stderr,"%s","                default: `0.0'\n");
+  fprintf(stderr,"%s","         -nsub: Number of output frequency subbands\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 4096\n");
+  fprintf(stderr,"%s","       -dstime: Power-of-2 number of samples to average in time\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 128\n");
+  fprintf(stderr,"%s","                default: `1'\n");
+  fprintf(stderr,"%s","    -startfile: Starting file number of sequence\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","                default: `1'\n");
+  fprintf(stderr,"%s","     -numfiles: Number of files to process\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","     -filetime: Desired length of the resulting files in sec\n");
+  fprintf(stderr,"%s","                1 float value between 0.0 and 100000.0\n");
+  fprintf(stderr,"%s","      -filelen: Desired length of the resulting files in GB\n");
+  fprintf(stderr,"%s","                1 float value between 0.0 and 1000.0\n");
+  fprintf(stderr,"%s","        -bytes: Make the raw data unsigned chars instead of signed shorts\n");
+  fprintf(stderr,"%s","        -onlyI: Only output total intensity data\n");
+  fprintf(stderr,"%s","      -weights: Filename containing ASCII list of channels and weights to use\n");
+  fprintf(stderr,"%s","                1 char* value\n");
+  fprintf(stderr,"%s","        infile: Input file name(s) of the PSRFITs datafiles\n");
+  fprintf(stderr,"%s","                1...2000 values\n");
+  fprintf(stderr,"%s","  version: 25Feb09\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -920,6 +957,26 @@ parseCmdline(int argc, char **argv)
       cmd.dstimeC = i-keep;
       checkIntLower("-dstime", &cmd.dstime, cmd.dstimeC, 128);
       checkIntHigher("-dstime", &cmd.dstime, cmd.dstimeC, 1);
+      continue;
+    }
+
+    if( 0==strcmp("-startfile", argv[i]) ) {
+      int keep = i;
+      cmd.startfileP = 1;
+      i = getIntOpt(argc, argv, i, &cmd.startfile, 1);
+      cmd.startfileC = i-keep;
+      checkIntLower("-startfile", &cmd.startfile, cmd.startfileC, 2000);
+      checkIntHigher("-startfile", &cmd.startfile, cmd.startfileC, 1);
+      continue;
+    }
+
+    if( 0==strcmp("-numfiles", argv[i]) ) {
+      int keep = i;
+      cmd.numfilesP = 1;
+      i = getIntOpt(argc, argv, i, &cmd.numfiles, 1);
+      cmd.numfilesC = i-keep;
+      checkIntLower("-numfiles", &cmd.numfiles, cmd.numfilesC, 2000);
+      checkIntHigher("-numfiles", &cmd.numfiles, cmd.numfilesC, 1);
       continue;
     }
 
