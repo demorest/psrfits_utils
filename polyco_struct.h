@@ -4,6 +4,7 @@ struct polyco {
     char psr[15];
     int mjd;
     double fmjd;
+    long long rphase_int;
     double rphase;
     double f0;
     int nsite;

@@ -9,7 +9,7 @@ CFLAGS = -O3 -Wall -DFOLD_USE_INTRINSICS -I$(OPT64)/include
 #CFLAGS = -g -Wall -I$(OPT64)/include
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
 	test_udp_recv test_psrfits test_psrfits_read fold_psrfits \
-	fix_psrfits_polyco
+	fix_psrfits_polyco psrfits_singlepulse
 OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
 	guppi_params.o guppi_time.o guppi_thread_args.o \
 	write_psrfits.o read_psrfits.o misc_utils.o \

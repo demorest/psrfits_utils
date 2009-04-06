@@ -279,10 +279,10 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
      * the rising edge of the first sample given
      */
     double dphase=0.0;
-    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL);
+    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL, NULL);
     phase = fmod(phase, 1.0);
     if (phase<0.0) { phase += 1.0; }
-    psr_phase(pc, imjd, fmjd_mid, &dphase);
+    psr_phase(pc, imjd, fmjd_mid, &dphase, NULL);
     dphase *= tsamp;
 
     /* Fold em */

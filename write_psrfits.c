@@ -64,7 +64,7 @@ int psrfits_create(struct psrfits *pf) {
 
     // Update the filename - don't include filenum for fold mode
     // TODO : use rf/cf extensions for psr/cals?
-    if (mode==fold)
+    if (mode==fold && pf->multifile!=1)
         sprintf(pf->filename, "%s.fits", pf->basefilename);
     else
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
@@ -294,7 +294,8 @@ int psrfits_write_subint(struct psrfits *pf) {
     // Create the initial file or change to a new one if needed.
     // Stay with a single file for fold mode.
     if (pf->filenum==0 || 
-            (mode==search && pf->rownum > pf->rows_per_file)) {
+            ( (mode==search || pf->multifile==1) 
+              && pf->rownum > pf->rows_per_file)) {
         if (pf->filenum) {
             printf("Closing file '%s'\n", pf->filename);
             fits_close_file(pf->fptr, status);
@@ -353,7 +354,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->T += sub->tsubint;
 
         // For fold mode, print info each subint written
-        if (mode==fold) {
+        if (mode==fold && pf->multifile!=1) {
             printf("Wrote subint %d (total time %.1fs)\n", pf->rownum-1, pf->T);
             fflush(stdout);
         }

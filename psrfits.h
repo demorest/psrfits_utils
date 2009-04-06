@@ -104,6 +104,7 @@ struct psrfits {
     int rows_per_file;      // The maximum number of rows (subints) per file
     int status;             // The CFITSIO status value
     fitsfile *fptr;         // The CFITSIO file structure
+    int multifile;          // Write multiple output files
     char mode;              // Read (r) or write (w).
     struct hdrinfo hdr;
     struct subint sub;

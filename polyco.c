@@ -25,6 +25,7 @@ int read_one_pc(FILE *f, struct polyco *pc) {
     if ((rv=strchr(pc->psr, ' '))!=NULL) { *rv='\0'; }
     rv = fgets(buf,90,f);
     if (rv==NULL) { return(-1); }
+    pc->rphase_int = atoll(&buf[0]);
     pc->rphase = fmod(atof(&buf[0]),1.0);
     pc->f0 = atof(&buf[20]);
     pc->nsite = atoi(&buf[42]);
@@ -123,7 +124,8 @@ int select_pc(const struct polyco *pc, int npc, const char *psr,
 }
 
 /* Compute pulsar phase given polyco struct and mjd */
-double psr_phase(const struct polyco *pc, int mjd, double fmjd, double *freq) {
+double psr_phase(const struct polyco *pc, int mjd, double fmjd, double *freq,
+        long long *pulsenum) {
     double dt = 1440.0*((double)(mjd-pc->mjd)+(fmjd-pc->fmjd));
     int i;
     double phase = pc->c[pc->nc-1];
@@ -136,6 +138,13 @@ double psr_phase(const struct polyco *pc, int mjd, double fmjd, double *freq) {
     f = pc->f0 + (1.0/60.0)*f;
     phase += pc->rphase + dt*60.0*pc->f0;
     if (freq!=NULL) { *freq = f; }
+    if (pulsenum!=NULL) { 
+        long long n = pc->rphase_int;
+        n += (long long)(phase - fmod(phase,1.0));
+        phase = fmod(phase,1.0);
+        if (phase<0.0) { phase += 1.0; n--; }
+        *pulsenum = n; 
+    }
     return(phase);
 }
 
