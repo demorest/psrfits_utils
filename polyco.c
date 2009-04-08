@@ -196,6 +196,15 @@ int pc_out_of_range(const struct polyco *pc, int mjd, double fmjd) {
     return(0);
 }
 
+int pc_out_of_range_sloppy(const struct polyco *pc, int mjd, double fmjd, 
+        double slop) {
+    double dt;
+    dt = (double)(mjd - pc->mjd) + (fmjd - pc->fmjd);
+    dt *= 1440.0;
+    if (fabs(dt)>slop*(double)pc->nmin/2.0) { return(1); }
+    return(0);
+}
+
 /* Check whether or not two polyco structs are the same */
 int polycos_differ(const struct polyco *p1, const struct polyco *p2) {
     // Could add more tests as needed

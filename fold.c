@@ -270,8 +270,8 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     /* Find midtime */
     double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
 
-    /* Check polyco set */
-    if (pc_out_of_range(pc, imjd, fmjd)) { return(-1); }
+    /* Check polyco set, allow 5% expansion of range */
+    if (pc_out_of_range_sloppy(pc, imjd, fmjd,1.05)) { return(-1); }
 
     /* Calc phase, phase step */
     /* NOTE: Starting sample phase is computed for the middle

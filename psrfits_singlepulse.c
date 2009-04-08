@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
     if (output_base[0]=='\0') {
         /* Set up default output filename */
-        sprintf(output_base, "%s_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
+        sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
                 pf_out.hdr.source, pf_out.hdr.start_day, 
                 (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
     }
@@ -183,6 +183,8 @@ int main(int argc, char *argv[]) {
     pf_out.sub.FITS_typecode = TFLOAT;
     pf_out.sub.bytes_per_subint = sizeof(float) * 
         pf_out.hdr.nchan * pf_out.hdr.npol * pf_out.hdr.nbin;
+    pf_out.multifile = 1;
+    pf_out.rows_per_file = npulse_per_file;
     rv = psrfits_create(&pf_out);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
@@ -200,8 +202,6 @@ int main(int argc, char *argv[]) {
     pf_out.sub.dat_scales  = (float *)malloc(sizeof(float) 
             * pf.hdr.nchan * pf.hdr.npol);
     pf_out.sub.data  = (unsigned char *)malloc(pf_out.sub.bytes_per_subint);
-    pf_out.multifile = 1;
-    pf_out.rows_per_file = npulse_per_file;
 
     /* Output scale/offset */
     int i, j, ipol, ichan;
@@ -386,8 +386,10 @@ int main(int argc, char *argv[]) {
                         pc_written[j]=0;
 
                 /* Write this polyco if needed */
-                if (pc_written[ipc]==0) 
+                if (pc_written[ipc]==0) {
                     psrfits_write_polycos(&pf_out, pc, npc);
+                    pc_written[ipc] = 1;
+                }
 
                 /* Check for write errors */
                 if (pf_out.status) {
