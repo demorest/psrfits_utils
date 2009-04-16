@@ -23,6 +23,7 @@ void usage() {
             "Options:\n"
             "  -h, --help               Print this\n"
             "  -o name, --output=name   Output base filename (auto-generate)\n"
+            "  -n nn, --npulse=nn       Number of pulses per output file (64)\n"
             "  -b nn, --nbin=nn         Number of profile bins (256)\n"
             "  -i nn, --initial=nn      Starting input file number (1)\n"
             "  -f nn, --final=nn        Ending input file number (auto)\n"
@@ -41,6 +42,7 @@ int main(int argc, char *argv[]) {
     /* Cmd line */
     static struct option long_opts[] = {
         {"output",  1, NULL, 'o'},
+        {"npulse",  1, NULL, 'n'},
         {"nbin",    1, NULL, 'b'},
         {"nthread", 1, NULL, 'j'},
         {"initial", 1, NULL, 'i'},
@@ -64,11 +66,14 @@ int main(int argc, char *argv[]) {
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:j:i:f:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:n:b:j:i:f:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
                 output_base[255]='\0';
+                break;
+            case 'n':
+                npulse_per_file = atoi(optarg);
                 break;
             case 'b':
                 nbin = atoi(optarg);
