@@ -146,6 +146,12 @@ int psrfits_read_subint(struct psrfits *pf) {
         fits_close_file(pf->fptr, status);
         pf->filenum++;
         psrfits_open(pf);
+        if (*status==104) {
+            printf("Finished with all input files.\n");
+            pf->filenum--;
+            *status = 1;
+            return *status;
+        }
     }
 
     int mode = psrfits_obs_mode(hdr->obs_mode);
@@ -205,4 +211,43 @@ int psrfits_read_subint(struct psrfits *pf) {
     }
 
     return *status;
+}
+
+/* Read only part (N "spectra" in time) of the DATA column from the
+ * current subint from the set of files described by the psrfits
+ * struct.  Put the data into the buffer "buffer".  It is assumed that
+ * all files form a consistent set.  Read automatically goes to the
+ * next file when one ends.  Arrays should be allocated outside this
+ * routine.  Counters are _not_ updated as they are in
+ * psrfits_read_subint().
+ */
+int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer) {
+
+    struct hdrinfo *hdr = &(pf->hdr);
+    int status=0;
+
+    // See if we need to move to next file
+    if (pf->rownum > pf->rows_per_file) {
+        printf("Closing file '%s'\n", pf->filename);
+        fits_close_file(pf->fptr, &(pf->status));
+        pf->filenum++;
+        psrfits_open(pf);
+        if (pf->status==104) {
+            printf("Finished with all input files.\n");
+            pf->filenum--;
+            pf->status = 1;
+            return pf->status;
+        }
+    }
+
+    int bytes_to_read = (hdr->nbits * hdr->nchan * hdr->npol * N) / 8;
+
+    // TODO: bad! really need to base this on column names
+    fits_read_col(pf->fptr, TBYTE, 17, pf->rownum, 1, bytes_to_read,
+                  NULL, buffer, NULL, &status);
+    
+    // Complain on error
+    fits_report_error(stderr, status);
+    
+    return status;
 }

@@ -34,8 +34,30 @@ static Cmdline cmd = {
   /* dstimeP = */ 1,
   /* dstime = */ 1,
   /* dstimeC = */ 1,
+  /***** -startfile: Starting file number of sequence */
+  /* startfileP = */ 1,
+  /* startfile = */ 1,
+  /* startfileC = */ 1,
+  /***** -numfiles: Number of files to process */
+  /* numfilesP = */ 0,
+  /* numfiles = */ (int)0,
+  /* numfilesC = */ 0,
+  /***** -filetime: Desired length of the resulting files in sec */
+  /* filetimeP = */ 0,
+  /* filetime = */ (float)0,
+  /* filetimeC = */ 0,
+  /***** -filelen: Desired length of the resulting files in GB */
+  /* filelenP = */ 0,
+  /* filelen = */ (float)0,
+  /* filelenC = */ 0,
   /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
   /* bytesP = */ 0,
+  /***** -onlyI: Only output total intensity data */
+  /* inlyIP = */ 0,
+  /***** -weights: Filename containing ASCII list of channels and weights to use */
+  /* wgtsfileP = */ 0,
+  /* wgtsfile = */ (char*)0,
+  /* wgtsfileC = */ 0,
   /***** uninterpreted rest of command line */
   /* argc = */ 0,
   /* argv = */ (char**)0,
@@ -733,24 +755,164 @@ catArgv(int argc, char **argv)
 /**********************************************************************/
 
 void
+showOptionValues(void)
+{
+  int i;
+
+  printf("Full command line is:\n`%s'\n", cmd.full_cmd_line);
+
+  /***** -dm: Dispersion measure to use for the subband de-dispersion */
+  if( !cmd.dmP ) {
+    printf("-dm not found.\n");
+  } else {
+    printf("-dm found:\n");
+    if( !cmd.dmC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%.40g'\n", cmd.dm);
+    }
+  }
+
+  /***** -nsub: Number of output frequency subbands */
+  if( !cmd.nsubP ) {
+    printf("-nsub not found.\n");
+  } else {
+    printf("-nsub found:\n");
+    if( !cmd.nsubC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.nsub);
+    }
+  }
+
+  /***** -dstime: Power-of-2 number of samples to average in time */
+  if( !cmd.dstimeP ) {
+    printf("-dstime not found.\n");
+  } else {
+    printf("-dstime found:\n");
+    if( !cmd.dstimeC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.dstime);
+    }
+  }
+
+  /***** -startfile: Starting file number of sequence */
+  if( !cmd.startfileP ) {
+    printf("-startfile not found.\n");
+  } else {
+    printf("-startfile found:\n");
+    if( !cmd.startfileC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.startfile);
+    }
+  }
+
+  /***** -numfiles: Number of files to process */
+  if( !cmd.numfilesP ) {
+    printf("-numfiles not found.\n");
+  } else {
+    printf("-numfiles found:\n");
+    if( !cmd.numfilesC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%d'\n", cmd.numfiles);
+    }
+  }
+
+  /***** -filetime: Desired length of the resulting files in sec */
+  if( !cmd.filetimeP ) {
+    printf("-filetime not found.\n");
+  } else {
+    printf("-filetime found:\n");
+    if( !cmd.filetimeC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%.40g'\n", cmd.filetime);
+    }
+  }
+
+  /***** -filelen: Desired length of the resulting files in GB */
+  if( !cmd.filelenP ) {
+    printf("-filelen not found.\n");
+  } else {
+    printf("-filelen found:\n");
+    if( !cmd.filelenC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%.40g'\n", cmd.filelen);
+    }
+  }
+
+  /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
+  if( !cmd.bytesP ) {
+    printf("-bytes not found.\n");
+  } else {
+    printf("-bytes found:\n");
+  }
+
+  /***** -onlyI: Only output total intensity data */
+  if( !cmd.inlyIP ) {
+    printf("-onlyI not found.\n");
+  } else {
+    printf("-onlyI found:\n");
+  }
+
+  /***** -weights: Filename containing ASCII list of channels and weights to use */
+  if( !cmd.wgtsfileP ) {
+    printf("-weights not found.\n");
+  } else {
+    printf("-weights found:\n");
+    if( !cmd.wgtsfileC ) {
+      printf("  no values\n");
+    } else {
+      printf("  value = `%s'\n", cmd.wgtsfile);
+    }
+  }
+  if( !cmd.argc ) {
+    printf("no remaining parameters in argv\n");
+  } else {
+    printf("argv =");
+    for(i=0; i<cmd.argc; i++) {
+      printf(" `%s'", cmd.argv[i]);
+    }
+    printf("\n");
+  }
+}
+/**********************************************************************/
+
+void
 usage(void)
 {
-  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-bytes] [--] infile ...\n");
+  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-startfile startfile] [-numfiles numfiles] [-filetime filetime] [-filelen filelen] [-bytes] [-onlyI] [-weights wgtsfile] [--] infile ...\n");
   fprintf(stderr,"%s","      \n");
   fprintf(stderr,"%s","      Partially de-disperse and subband PSRFITS search-mode data.\n");
   fprintf(stderr,"%s","      \n");
-  fprintf(stderr,"%s","        -dm: Dispersion measure to use for the subband de-dispersion\n");
-  fprintf(stderr,"%s","             1 double value between 0.0 and 10000.0\n");
-  fprintf(stderr,"%s","             default: `0.0'\n");
-  fprintf(stderr,"%s","      -nsub: Number of output frequency subbands\n");
-  fprintf(stderr,"%s","             1 int value between 1 and 4096\n");
-  fprintf(stderr,"%s","    -dstime: Power-of-2 number of samples to average in time\n");
-  fprintf(stderr,"%s","             1 int value between 1 and 128\n");
-  fprintf(stderr,"%s","             default: `1'\n");
-  fprintf(stderr,"%s","     -bytes: Make the raw data unsigned chars instead of signed shorts\n");
-  fprintf(stderr,"%s","     infile: Input file name(s) of the PSRFITs datafiles\n");
-  fprintf(stderr,"%s","             1...2000 values\n");
-  fprintf(stderr,"%s","  version: 06Oct08\n");
+  fprintf(stderr,"%s","           -dm: Dispersion measure to use for the subband de-dispersion\n");
+  fprintf(stderr,"%s","                1 double value between 0.0 and 10000.0\n");
+  fprintf(stderr,"%s","                default: `0.0'\n");
+  fprintf(stderr,"%s","         -nsub: Number of output frequency subbands\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 4096\n");
+  fprintf(stderr,"%s","       -dstime: Power-of-2 number of samples to average in time\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 128\n");
+  fprintf(stderr,"%s","                default: `1'\n");
+  fprintf(stderr,"%s","    -startfile: Starting file number of sequence\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","                default: `1'\n");
+  fprintf(stderr,"%s","     -numfiles: Number of files to process\n");
+  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","     -filetime: Desired length of the resulting files in sec\n");
+  fprintf(stderr,"%s","                1 float value between 0.0 and 100000.0\n");
+  fprintf(stderr,"%s","      -filelen: Desired length of the resulting files in GB\n");
+  fprintf(stderr,"%s","                1 float value between 0.0 and 1000.0\n");
+  fprintf(stderr,"%s","        -bytes: Make the raw data unsigned chars instead of signed shorts\n");
+  fprintf(stderr,"%s","        -onlyI: Only output total intensity data\n");
+  fprintf(stderr,"%s","      -weights: Filename containing ASCII list of channels and weights to use\n");
+  fprintf(stderr,"%s","                1 char* value\n");
+  fprintf(stderr,"%s","        infile: Input file name(s) of the PSRFITs datafiles\n");
+  fprintf(stderr,"%s","                1...2000 values\n");
+  fprintf(stderr,"%s","  version: 25Feb09\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -798,8 +960,61 @@ parseCmdline(int argc, char **argv)
       continue;
     }
 
+    if( 0==strcmp("-startfile", argv[i]) ) {
+      int keep = i;
+      cmd.startfileP = 1;
+      i = getIntOpt(argc, argv, i, &cmd.startfile, 1);
+      cmd.startfileC = i-keep;
+      checkIntLower("-startfile", &cmd.startfile, cmd.startfileC, 2000);
+      checkIntHigher("-startfile", &cmd.startfile, cmd.startfileC, 1);
+      continue;
+    }
+
+    if( 0==strcmp("-numfiles", argv[i]) ) {
+      int keep = i;
+      cmd.numfilesP = 1;
+      i = getIntOpt(argc, argv, i, &cmd.numfiles, 1);
+      cmd.numfilesC = i-keep;
+      checkIntLower("-numfiles", &cmd.numfiles, cmd.numfilesC, 2000);
+      checkIntHigher("-numfiles", &cmd.numfiles, cmd.numfilesC, 1);
+      continue;
+    }
+
+    if( 0==strcmp("-filetime", argv[i]) ) {
+      int keep = i;
+      cmd.filetimeP = 1;
+      i = getFloatOpt(argc, argv, i, &cmd.filetime, 1);
+      cmd.filetimeC = i-keep;
+      checkFloatLower("-filetime", &cmd.filetime, cmd.filetimeC, 100000.0);
+      checkFloatHigher("-filetime", &cmd.filetime, cmd.filetimeC, 0.0);
+      continue;
+    }
+
+    if( 0==strcmp("-filelen", argv[i]) ) {
+      int keep = i;
+      cmd.filelenP = 1;
+      i = getFloatOpt(argc, argv, i, &cmd.filelen, 1);
+      cmd.filelenC = i-keep;
+      checkFloatLower("-filelen", &cmd.filelen, cmd.filelenC, 1000.0);
+      checkFloatHigher("-filelen", &cmd.filelen, cmd.filelenC, 0.0);
+      continue;
+    }
+
     if( 0==strcmp("-bytes", argv[i]) ) {
       cmd.bytesP = 1;
+      continue;
+    }
+
+    if( 0==strcmp("-onlyI", argv[i]) ) {
+      cmd.inlyIP = 1;
+      continue;
+    }
+
+    if( 0==strcmp("-weights", argv[i]) ) {
+      int keep = i;
+      cmd.wgtsfileP = 1;
+      i = getStringOpt(argc, argv, i, &cmd.wgtsfile, 1);
+      cmd.wgtsfileC = i-keep;
       continue;
     }
 

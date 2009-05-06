@@ -13,14 +13,10 @@
 // This tests to see if 2 times are within 100ns of each other
 #define TEST_CLOSE(a, b) (fabs((a)-(b)) <= 1e-7 ? 1 : 0)
 
-#define DEBUG 0
-
 extern double delay_from_dm(double dm, double freq_emitted);
 extern int split_root_suffix(char *input, char **root, char **suffix);
-extern void avg_std(char *x, int n, double *mean, double *std);
-extern short transpose_bytes(unsigned char *a, int nx, int ny, 
-                             unsigned char *move, int move_size);
-extern void downsample_freq(struct psrfits *pf);
+extern void avg_std(char *x, int n, double *mean, double *std, int stride);
+extern void split_path_file(char *input, char **path, char **file);
 
 struct subband_info {
     int nsub;
@@ -32,60 +28,74 @@ struct subband_info {
     int max_overlap;
     int buflen;  // Number of samples (in time) in a block
     int bufwid;  // Number of channels times number of polns
-    int Tbufsize;
     double dm;
     double sub_df;
     double *sub_delays;
     double *chan_delays;
     int *idelays;
+    int *numnonzero;
     float *sub_freqs;
     float *weights;
+    float *userwgts;
     float *offsets;
     float *scales;
     float *chan_avgs;
     float *chan_stds;
     unsigned char *buffer;
-    unsigned char *tmpbuf;
     unsigned char *outbuffer;
-    unsigned char *Tbuf;
+    unsigned char *intwgts;
 };
 
-void get_chan_stats(struct psrfits *pfi, 
-                    struct subband_info *si) {
-    int ii, offset=0;
+
+static void print_percent_complete(int current, int number, int reset)
+{
+   static int newper = 0, oldper = -1;
+
+   if (reset) {
+      oldper = -1;
+      newper = 0;
+   } else {
+      newper = (int) (current / (float) (number) * 100.0);
+      if (newper < 0)
+         newper = 0;
+      if (newper > 100)
+         newper = 100;
+      if (newper > oldper) {
+         printf("\r%3d%% ", newper);
+         fflush(stdout);
+         oldper = newper;
+      }
+   }
+}
+
+void get_chan_stats(struct psrfits *pfi, struct subband_info *si){   
+    int ii;
     double avg, std;
 
     for (ii = 0 ; ii < si->bufwid ; ii++) {
-        avg_std((char *)pfi->sub.data+offset, si->buflen/8, &avg, &std);
+        // Only use 1/8 of the total length in order to speed things up
+        avg_std((char *)(pfi->sub.data+ii), si->buflen/8, &avg, &std, si->bufwid);
         si->chan_avgs[ii] = avg;
         si->chan_stds[ii] = std;
-        offset += si->buflen;
-#ifdef DEBUG1
-        printf("xxx %d %f %f\n", ii, avg, std);
-#endif        
     }
 }
 
-void get_sub_stats(struct psrfits *pfi, 
-                   struct subband_info *si) {
-    int ii, offset=0;
+
+void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
+    int ii, stride=si->bufwid/si->chan_per_sub;
     double avg, std;
 
-    for (ii = 0 ; ii < si->bufwid/si->chan_per_sub ; ii++) {
-        avg_std((char *)pfi->sub.data+offset, si->buflen, &avg, &std);
-        offset += si->buflen;
-#ifdef DEBUG
-        printf("xxx %d %f %f\n", ii, avg, std);
-#endif        
+    for (ii = 0 ; ii < stride ; ii++) {
+        avg_std((char *)(pfo->sub.data+ii), si->buflen, &avg, &std, stride);
     }
 }
 
-void get_next_row(struct psrfits *pfi, 
-                  struct subband_info *si) {
+
+int get_current_row(struct psrfits *pfi, struct subband_info *si) {
     static int firsttime = 1, num_pad_blocks = 0;
     static double last_offs, row_duration;
     double diff_offs, dnum_blocks;
-    int ii;
+    int ii, jj;
     
     if (firsttime) {
         row_duration = pfi->sub.tsubint;
@@ -93,104 +103,85 @@ void get_next_row(struct psrfits *pfi,
         firsttime = 0;
     }
 
+    print_percent_complete(pfi->rownum, pfi->rows_per_file, 
+                           pfi->rownum==1 ? 1 : 0);
+
+#if 0
+    printf("row %d\n", pfi->rownum);
+#endif
+
     if (num_pad_blocks==0) {  // Try to read the PSRFITS file
 
-        // Read the first row of data
+        // Read the current row of data
         psrfits_read_subint(pfi);
         diff_offs = pfi->sub.offs - last_offs;
 
-        if (!TEST_CLOSE(diff_offs, row_duration) || 
-            pfi->status) { // Missing rows
-            if (!pfi->status) {
+        if (!TEST_CLOSE(diff_offs, row_duration) || pfi->status) {
+            if (pfi->status) { // End of the files
+                num_pad_blocks = 1;
+            } else { // Missing row(s)
                 dnum_blocks = diff_offs/row_duration - 1.0;
-                num_pad_blocks = (int)(dnum_blocks + 1e-12);
-#ifdef DEBUG
-                printf("At row %d, found %d dropped rows.\n", 
-                       pfi->rownum, num_pad_blocks);
-#endif        
+                num_pad_blocks = (int)(dnum_blocks + 1e-7);
                 pfi->rownum--;   // Will re-read when no more padding
                 pfi->tot_rows--; // Only count "real" rows towards tot_rows
+#if 1
+                printf("At row %d, found %d dropped rows.\n", 
+                       pfi->rownum, num_pad_blocks);
+                printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+                       pfi->tot_rows);
+#endif        
                 pfi->N -= pfi->hdr.nsblk;  // Will be re-added below for padding
-            } else { // End of the files
-                num_pad_blocks = 1;
             }
-            // Fill the data buffer with with the chan_avgs so that it
-            // acts like a previously read block (or row)
+            // Now fill the main part of si->buffer with the chan_avgs so that
+            // it acts like a correctly read block (or row)
             for (ii = 0 ; ii < si->bufwid ; ii++) {
-                unsigned char *tind = pfi->sub.data + ii * si->buflen;
-                memset((char *)tind, (int)rint(si->chan_avgs[ii]), si->buflen);
+                for (jj = 0 ; jj < si->buflen ; jj++) {
+                    pfi->sub.data[jj*si->bufwid+ii] = (char)rint(si->chan_avgs[ii]);
+                }
             }
 
         } else { // Return the row from the file
-
-            // Transpose the data so that each channel is together in RAM
-            transpose_bytes(pfi->sub.data, si->buflen, si->bufwid, 
-                            si->Tbuf, si->Tbufsize);
             // Determine channel statistics
             get_chan_stats(pfi, si);
-
             last_offs = pfi->sub.offs;
-            return;
+            return 0;
         }
     }
 
-    // Return the padding from before
+    // Return the same padding as before
     last_offs += row_duration;
     pfi->N += pfi->hdr.nsblk;
     pfi->T = pfi->N * pfi->hdr.dt;
     num_pad_blocks--;
+    return num_pad_blocks;
 }
 
 
-void convert_next_to_current(struct psrfits *pfi, 
-                             struct subband_info *si) {
-    int ii;
+/* Average adjacent frequency channels, including dispersion, together
+ * to make de-dispersed subbands.  Note: this only works properly for
+ * 8-bit data currently.
+ */
+void make_subbands(struct psrfits *pfi, struct subband_info *si) {
+    int ii, jj, kk, itmp;
+    char *indata = (char *)pfi->sub.data;
+    char *outdata = (char *)si->outbuffer;
+    const int dsfact = si->chan_per_sub;
+    const int in_bufwid = si->bufwid;
+    const int out_bufwid = si->bufwid / si->chan_per_sub;
 
-    // Prep and shift the data in the output buffer
-    for (ii = 0 ; ii < si->bufwid ; ii++) {
-        int absdelay = abs(si->idelays[ii]);
-        int num = si->buflen - absdelay;
-        int ioffset = 0;
-        int ooffset = 0;
-        unsigned char *iind = pfi->sub.data + ii * si->buflen;
-        unsigned char *oind = si->buffer + ii * si->buflen;
-        unsigned char *tind = si->tmpbuf + ii * si->max_overlap;
-        if (si->idelays[ii] < 0) {
-            // negative delays arrived before the subband center, 
-            // so we get them from tmpbuf
-            ooffset = absdelay;
-            memcpy(oind, tind, absdelay);
-            // Put the stuff we need to buffer into the tmpbuf
-            memcpy(tind, iind+num, absdelay);
-        } else {
-            // positive delays arrive later than the subband center,
-            // so some of them come from the next block
-            ioffset = absdelay;
-            // Put the stuff from the new block into buffer
-            memcpy(oind+num, iind, absdelay);
-        }
-        // Now place the data we have access to into buffer
-        memcpy(oind+ooffset, iind+ioffset, num);
-    }
-}
-
-
-void complete_current_from_next(struct psrfits *pfi, 
-                                struct subband_info *si) {
-    int ii;
-    
-    // Prep and shift the data in the output buffer
-    for (ii = 0 ; ii < si->bufwid ; ii++) {
-        int absdelay = abs(si->idelays[ii]);
-        int ooffset = 0;
-        unsigned char *iind = pfi->sub.data + ii * si->buflen;
-        unsigned char *oind = si->buffer + ii * si->buflen;
-        if (si->idelays[ii] > 0) {
-            // positive delays arrive later than the subband center,
-            // so some of them come from the next block
-            ooffset = si->buflen - absdelay;
-            // Put the stuff from the new block into buffer
-            memcpy(oind+ooffset, iind, absdelay);
+    // Iterate over the times 
+    for (ii = 0 ; ii < si->buflen ; ii++) {
+        int *idelays = si->idelays;
+        int *numnonzero = si->numnonzero;
+        unsigned char *intwgts = si->intwgts;
+        // Iterate over the output chans/pols 
+        for (jj = 0 ; jj < out_bufwid ; jj++, numnonzero++) {
+            itmp = *numnonzero / 2;  // starting value for "rounding"
+            // Iterate over the input chans/pols 
+            for (kk = 0 ; kk < dsfact ; kk++, idelays++, intwgts++, indata++)
+                itmp += (*intwgts) ? *(indata + *idelays * in_bufwid) : 0;
+            // Now convert the sum to an average of the good channels
+            *outdata++ = (*numnonzero) ? itmp / *numnonzero : 0;
         }
     }
 }
@@ -220,54 +211,52 @@ void init_subbanding(int nsub, double dm,
     si->chan_delays = (double *)malloc(sizeof(double) * si->nchan);
     si->sub_delays = (double *)malloc(sizeof(double) * si->nsub);
     si->idelays = (int *)malloc(sizeof(int) * si->nchan * si->npol);
+    // Make this artificially long to help with the subbanding code
+    si->numnonzero = (int *)malloc(sizeof(int) * si->nsub * si->npol);
     si->weights = (float *)malloc(sizeof(float) * si->nsub);
     si->offsets = (float *)malloc(sizeof(float) * si->nsub * si->npol);
     si->scales = (float *)malloc(sizeof(float) * si->nsub * si->npol);
     si->chan_avgs = (float *)malloc(sizeof(float) * si->bufwid);
     si->chan_stds = (float *)malloc(sizeof(float) * si->bufwid);
 
-    // Following should be an upper limit (if storing data as floats)
-    //si->buffer = (unsigned char *)malloc(sizeof(float) * 
-    //                                     si->buflen * si->bufwid);
-    //si->outbuffer = (unsigned char *)malloc(sizeof(float) * 
-    //                                        si->nsub * si->npol * si->buflen);
-    si->buffer = (unsigned char *)calloc(si->buflen * si->bufwid, 
-                                         sizeof(unsigned char));
-    // Will need the following for out-of-place subbanding
-    //si->outbuffer = (unsigned char *)calloc(si->nsub * si->npol * si->buflen, 
-    //                                        sizeof(unsigned char));
-    // For in-place subbanding...
-    si->outbuffer = si->buffer;
-    si->Tbufsize = si->bufwid * si->buflen / 2;
-    si->Tbuf = (unsigned char *)malloc(sizeof(unsigned char) * si->Tbufsize);
-
     /* Alloc data buffers for the input PSRFITS file */
     pfi->sub.dat_freqs = (float *)malloc(sizeof(float) * pfi->hdr.nchan);
     pfi->sub.dat_weights = (float *)malloc(sizeof(float) * pfi->hdr.nchan);
+    si->intwgts = (unsigned char *)malloc(pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.dat_offsets = (float *)malloc(sizeof(float)
                                           * pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.dat_scales  = (float *)malloc(sizeof(float)
                                           * pfi->hdr.nchan * pfi->hdr.npol);
+    // This is temporary...
     pfi->sub.data = (unsigned char *)malloc(pfi->sub.bytes_per_subint);
         
     // Read the first row of data
     psrfits_read_subint(pfi);
+
+    if (si->userwgts) {
+        free(pfi->sub.dat_weights);
+        pfi->sub.dat_weights = si->userwgts;
+    }
+
     // Reset the read counters since we'll re-read
     pfi->rownum--;
     pfi->tot_rows--;
     pfi->N -= pfi->hdr.nsblk;
 
+    // Check to see if all the weights are either 0 or 1, warn if not
+    for (ii = 0 ; ii < pfi->hdr.nchan ; ii++) {
+        if ((pfi->sub.dat_weights[ii]!=0.0) && (pfi->sub.dat_weights[ii]!=1.0)) {
+            printf("Warning!:  The input data have non 0 or 1 valued weights!\n"
+                   "           This will be handled improperly by this code!\n");
+        }
+    }
+    
     // Compute the subband properties, DM delays and offsets
     lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.orig_df * 0.5;
     for (ii = 0, cindex = 0 ; ii < si->nsub ; ii++) {
         dtmp = lofreq + ((double)ii + 0.5) * si->sub_df;
         si->sub_freqs[ii] = dtmp;
         si->sub_delays[ii] = delay_from_dm(si->dm, dtmp);
-#ifdef DEBUG1
-        printf("%4d  %.8f  %.4f\n", ii, dtmp, si->sub_delays[ii]*1e6);
-#endif
-// These need fixed based on input data
-        si->weights[ii] = 1.0;
         for (jj = 0 ; jj < si->npol ; jj++) {
             si->offsets[jj*si->nsub+ii] = 0.0;
             si->scales[jj*si->nsub+ii] = 1.0;
@@ -279,10 +268,23 @@ void init_subbanding(int nsub, double dm,
                                                     pfi->sub.dat_freqs[cindex]);
             si->chan_delays[cindex] -= si->sub_delays[ii];
             si->idelays[cindex] = (int)rint(si->chan_delays[cindex] / pfi->hdr.dt);
-            // Copy the delays if we have more than 1 poln
-            for (kk = 1 ; kk > si->npol ; kk++)
-                si->idelays[kk*si->nchan+cindex] = si->idelays[cindex];
-                
+            // Count how many of the channels in this subband have 
+            if (pfi->sub.dat_weights[cindex]>0.5) {
+                si->numnonzero[ii]++;
+                si->intwgts[cindex] = 1;
+            } else {
+                si->intwgts[cindex] = 0;
+            }
+            // Copy the delays and intwgts if we have more than 1 poln
+            for (kk = 1 ; kk < si->npol ; kk++) {
+                si->idelays[cindex+kk*si->nchan] = si->idelays[cindex];
+                si->intwgts[cindex+kk*si->nchan] = si->intwgts[cindex];
+            }
+        }
+        si->weights[ii] = (float)si->numnonzero[ii] / (float)si->chan_per_sub;
+        // Copy the numnonzero if we have more than 1 poln
+        for (kk = 1 ; kk < si->npol ; kk++) {
+            si->numnonzero[ii+kk*si->nsub] = si->numnonzero[ii];
         }
     }
 
@@ -295,56 +297,110 @@ void init_subbanding(int nsub, double dm,
             si->max_late = si->idelays[ii];
     }
     si->max_overlap = abs(si->max_early) + si->max_late;
-#ifdef DEBUG1
-    printf("max_early   = %d\n", si->max_early);
-    printf("max_late    = %d\n", si->max_late);
-    printf("max_overlap = %d\n", si->max_overlap);
-#endif
-    si->tmpbuf = (unsigned char *)malloc(sizeof(float) * 
-                                         si->max_overlap * si->bufwid);
+
+    // This buffer will hold the input data, plus the bits of data from
+    // the previous and next blocks
+    si->buffer = (unsigned char *)calloc((si->buflen + 2 * si->max_overlap) * 
+                                         si->bufwid, sizeof(unsigned char));
+    // The input data will be stored directly in the buffer space
+    // So the following is really just an offset into the bigger buffer
+    free(pfi->sub.data);  // Free the temporary allocation from above
+    pfi->sub.data = si->buffer + si->max_overlap * si->bufwid * sizeof(unsigned char);
+    // We need the following since we do out-of-place subbanding
+    si->outbuffer = (unsigned char *)calloc(si->nsub * si->npol * si->buflen, 
+                                            sizeof(unsigned char));
     
     // re-read the first row (i.e. for "real" this time)
-    get_next_row(pfi, si);
+    get_current_row(pfi, si);
     
-    // Now fill tmpbuf with the chan_avgs so that it acts like
-    // a previously read block (or row)
+    // Now fill the first part of si->buffer with the chan_avgs so that
+    // it acts like a previously read block (or row)
     for (ii = 0 ; ii < si->bufwid ; ii++) {
-        unsigned char *tind = si->tmpbuf + ii * si->max_overlap;
-        memset((char *)tind, (int)rint(si->chan_avgs[ii]), si->max_overlap);
+        for (jj = 0 ; jj < si->max_overlap ; jj++) {
+            si->buffer[jj*si->bufwid+ii] = (char)rint(si->chan_avgs[ii]);
+        }
     }
-
-    // Now shift most of the data into the output buffer
-    convert_next_to_current(pfi, si);
 }
+
 
 void set_output_vals(struct psrfits *pfi, 
                      struct psrfits *pfo, 
-                     struct subband_info *si) {
+                     struct subband_info *si,
+                     Cmdline *cmd) {
     // Copy everything
     *pfo = *pfi;
+    // Determine the length of the outputfiles to use
+    if (cmd->filetimeP) {
+        pfo->rows_per_file = 10 * \
+            (int) rint(0.1 * (cmd->filetime / pfi->sub.tsubint));
+    } else if (cmd->filelenP) {        
+        long long filelen;
+        int bytes_per_subint;
+        filelen = cmd->filelen * (1L<<30);  // In GB
+        bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
+                            pfo->hdr.npol * pfo->hdr.nsblk) / (8 * si->chan_per_sub);
+        pfo->rows_per_file = filelen / bytes_per_subint;
+    } else {  // By default, keep the filesize roughly constant
+        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub;
+    }
     pfo->filenum = 0; // This causes the output files to be created
     pfo->filename[0] = '\0';
     pfo->rownum = 1;
     pfo->tot_rows = 0;
     pfo->N = 0;
-    sprintf(pfo->basefilename, "%s_subs", pfi->basefilename);
+    {
+        char *inpath, *infile;
+        split_path_file(pfi->basefilename, &inpath, &infile);
+        sprintf(pfo->basefilename, "%s_subs", infile);
+        free(inpath);
+        free(infile);
+    }
     // Reset different params
     pfo->sub.dat_freqs = si->sub_freqs;
     pfo->sub.dat_weights = si->weights;
     pfo->sub.dat_offsets = si->offsets;
     pfo->sub.dat_scales  = si->scales;
-    //pfo->hdr.nbits = sizeof(short)*8;
-    //pfo->sub.FITS_typecode = TSHORT;
-    //pfo->hdr.nbits = 8;
-    //pfo->sub.FITS_typecode = TBYTE;
-    // For in-place subbanding using the code in downsample.c
     pfo->hdr.ds_freq_fact = si->chan_per_sub;
     pfo->hdr.chan_dm = si->dm;
-    //pfo->hdr.nchan = si->nsub;
-    //pfo->hdr.npol = si->npol;
-    //pfo->sub.bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
-    //                             pfo->hdr.npol * pfo->hdr.nsblk) / 8;
     pfo->sub.data = si->outbuffer;
+}
+
+
+void read_weights(char *filenm, int *numchan, float **weights)
+{
+    FILE *infile;
+    int N, chan;
+    float wgt;
+    char line[80];
+
+    infile = fopen(filenm, "r");
+
+    // Read the input file once to count the lines
+    N = 0;
+    while (!feof(infile)){
+        fgets(line, 80, infile);
+        if (line[0]!='#') {
+            sscanf(line, "%d %f\n", &chan, &wgt);
+            N++;
+        }
+    }
+    N--;
+    *numchan = N;
+
+    // Allocate the output arrays
+    *weights = (float *)malloc(N * sizeof(float));
+
+    // Rewind and read the EVENTs for real
+    rewind(infile);
+    N = 0;
+    while (!feof(infile)){
+        fgets(line, 80, infile);
+        if (line[0]!='#') {
+            sscanf(line, "%d %f\n", &chan, *weights+N);
+            N++;
+        }
+    }
+    fclose(infile);
 }
 
 
@@ -352,6 +408,7 @@ int main(int argc, char *argv[]) {
     Cmdline *cmd;
     struct psrfits pfi, pfo;
     struct subband_info si;
+    int stat=0, padding=0, userN=0;
 
     // Call usage() if we have no command line arguments
     if (argc == 1) {
@@ -365,51 +422,76 @@ int main(int argc, char *argv[]) {
 
     // Open the input PSRFITs files
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
-    pfi.filenum = 1;
+    pfi.filenum = cmd->startfile;
     pfi.filename[0] = '\0';
     sprintf(pfi.basefilename, cmd->argv[0]);
     int rv = psrfits_open(&pfi);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
+    // Read the user weights if requested
+    si.userwgts = NULL;
+    if (cmd->wgtsfileP ) {
+        read_weights(cmd->wgtsfile, &userN, &si.userwgts);
+        if (userN != pfi.hdr.nchan) {
+            printf("Error!:  Input data has %d channels, but '%s' contains only %d weights!\n",
+                   pfi.hdr.nchan, cmd->wgtsfile, userN);
+            exit(0);
+        }
+        printf("Overriding input channel weights with those in '%s'\n", cmd->wgtsfile);
+    }
+
     // Initialize the subbanding
     // (including reading the first row of data and
-    //  putting it in si->buffer and si->tmpbuf)
+    //  putting it in si->buffer)
     init_subbanding(cmd->nsub, cmd->dm, &pfi, &si);
 
     // Update the output PSRFITS structure
-    set_output_vals(&pfi, &pfo, &si);
+    set_output_vals(&pfi, &pfo, &si, cmd);
 
     // Loop through the data
     do {
-        // Read the next row (or padding)
-        get_next_row(&pfi, &si);
-        
-        // Put the overlapping parts from it into si->buffer
-        complete_current_from_next(&pfi, &si);
-        
-        // Sum si->buffer to create subbands
-        // must un-transpose and then sum
-        transpose_bytes(si.buffer, si.bufwid, si.buflen, 
-                        si.Tbuf, si.Tbufsize);
-        downsample_freq(&pfo);
-        //printf("Input row: %d   Output row: %d\n", pfi.rownum, pfo.rownum);
-        //transpose_bytes(si.buffer, si.buflen, si.bufwid/si.chan_per_sub, 
-        //                si.Tbuf, si.Tbufsize);
+        // Put the overlapping parts from the next block into si->buffer
+        char *ptr = (char *)(pfi.sub.data + si.buflen * si.bufwid);
+        if (padding==0)
+            stat = psrfits_read_part_DATA(&pfi, si.max_overlap, ptr);
+        if (stat || padding) { // Need to use padding since we ran out of data
+            printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+                   pfi.tot_rows);
+            int ii, jj;
+            // Now fill the last part of si->buffer with the chan_avgs so that
+            // it acts like a correctly read block (or row)
+            for (ii = 0 ; ii < si.bufwid ; ii++) {
+                for (jj = 0 ; jj < si.max_overlap ; jj++) {
+                    ptr[jj*si.bufwid+ii] = (char)rint(si.chan_avgs[ii]);
+                }
+            }
+        }
+
+        // Now create the subbanded row in the output buffer
+        make_subbands(&pfi, &si);
         //get_sub_stats(&pfo, &si);
 
         // Write the new row to the output file
-        // Need to update the other params as well
-        pfo.sub.offs = ((pfo.rownum-1)+0.5) * pfo.sub.tsubint;
+        pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
         psrfits_write_subint(&pfo);
 
-        // Shift the psr->sub.data to si->buffer and si->tmpbuf
-        convert_next_to_current(&pfi, &si);
+        // Break out of the loop here if stat is set
+// TODO:  this should only happen for the last file, not missing rows... 
+        if (stat) break;
+
+        // shift the last part of the current row into the "last-row" 
+        // part of the data buffer
+        memcpy(si.buffer, si.buffer + si.buflen * si.bufwid, 
+               si.max_overlap * si.bufwid);
+
+        // Read the next row (or padding)
+        padding = get_current_row(&pfi, &si);
 
     } while (pfi.status == 0);
 
-    psrfits_close(&pfi);
+    rv = psrfits_close(&pfi);
     if (rv) { fits_report_error(stderr, rv); }
-    psrfits_close(&pfo);
+    rv = psrfits_close(&pfo);
     if (rv) { fits_report_error(stderr, rv); }
     exit(0);
 }
