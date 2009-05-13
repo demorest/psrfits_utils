@@ -57,6 +57,18 @@ int psrfits_create(struct psrfits *pf) {
         pf->T = 0.0;
         hdr->offset_subint = 0;
         pf->mode = 'w';
+
+        // Create the output directory if needed
+        char datadir[1024];
+        strncpy(datadir, pf->basefilename, 1023);
+        char *last_slash = strrchr(datadir, '/');
+        if (last_slash!=NULL && last_slash!=datadir) {
+            *last_slash = '\0';
+            printf("Using directory '%s' for output.\n", datadir);
+            char cmd[1024];
+            sprintf(cmd, "mkdir -m 775 -p %s", datadir);
+            system(cmd);
+        }
     }
     pf->filenum++;
     pf->rownum = 1;
