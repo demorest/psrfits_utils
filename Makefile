@@ -1,12 +1,5 @@
-OPT64 = /users/sransom/64bit
-ifeq ($(shell hostname),beef) 
-    OPT64 = /opt/64bit
-endif
-ifeq ($(shell hostname),tofu) 
-    OPT64 = /opt/64bit
-endif
+OPT64 = /home/pulsar64
 CFLAGS = -O3 -Wall -DFOLD_USE_INTRINSICS -I$(OPT64)/include
-#CFLAGS = -g -Wall -I$(OPT64)/include
 PROGS = check_guppi_databuf check_guppi_status clean_guppi_shmem \
 	test_udp_recv test_psrfits test_psrfits_read fold_psrfits \
 	fix_psrfits_polyco psrfits_singlepulse
