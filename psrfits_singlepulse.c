@@ -189,6 +189,7 @@ int main(int argc, char *argv[]) {
     pf_out.sub.bytes_per_subint = sizeof(float) * 
         pf_out.hdr.nchan * pf_out.hdr.npol * pf_out.hdr.nbin;
     pf_out.multifile = 1;
+    pf_out.quiet = 1;
     pf_out.rows_per_file = npulse_per_file;
     rv = psrfits_create(&pf_out);
     if (rv) { fits_report_error(stderr, rv); exit(1); }

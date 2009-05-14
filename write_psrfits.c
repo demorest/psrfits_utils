@@ -356,7 +356,11 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_flush_file(pf->fptr, status);
 
     // Print status if bad
-    fits_report_error(stderr, *status);
+    if (*status) {
+        fprintf(stderr, "Error writing subint %d:\n", pf->rownum);
+        fits_report_error(stderr, *status);
+        fflush(stderr);
+    }
 
     // Now update some key values if no CFITSIO errors
     if (!(*status)) {
@@ -366,7 +370,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         pf->T += sub->tsubint;
 
         // For fold mode, print info each subint written
-        if (mode==fold && pf->multifile!=1) {
+        if (mode==fold && pf->quiet!=1) {
             printf("Wrote subint %d (total time %.1fs)\n", pf->rownum-1, pf->T);
             fflush(stdout);
         }

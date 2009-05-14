@@ -3,8 +3,9 @@
 #define _PSRFITS_H
 #include "fitsio.h"
 
-// The following is the max file length in GB
-#define PSRFITS_MAXFILELEN 10L
+// The following is the max file length in GB, different for fold/search
+#define PSRFITS_MAXFILELEN_SEARCH 10L
+#define PSRFITS_MAXFILELEN_FOLD 1L
 
 // The following is the template file to use to create a PSRFITS file.
 // Path is relative to GUPPI_DIR environment variable.
@@ -105,6 +106,7 @@ struct psrfits {
     int status;             // The CFITSIO status value
     fitsfile *fptr;         // The CFITSIO file structure
     int multifile;          // Write multiple output files
+    int quiet;              // Be quiet about writing each subint
     char mode;              // Read (r) or write (w).
     struct hdrinfo hdr;
     struct subint sub;

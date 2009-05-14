@@ -186,6 +186,8 @@ int main(int argc, char *argv[]) {
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;
+    pf_out.multifile=1;
+    pf_out.quiet=0;
     pf_out.hdr.nbin=nbin;
     pf_out.sub.FITS_typecode = TFLOAT;
     pf_out.sub.bytes_per_subint = sizeof(float) * 
