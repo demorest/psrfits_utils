@@ -35,6 +35,7 @@ void usage() {
             "  -F nn, --foldfreq=nn     Fold at constant freq (Hz)\n"
             "  -C, --cal                Cal folding mode\n"
             "  -u, --unsigned           Raw data is unsigned\n"
+            "  -S size, --split=size    Approximate max size per output file, GB (1)\n"
             "  -q, --quiet              No progress indicator\n"
           );
 }
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
         {"foldfreq",1, NULL, 'F'},
         {"cal",     0, NULL, 'C'},
         {"unsigned",0, NULL, 'u'},
+        {"split",   1, NULL, 'S'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
         {0,0,0,0}
@@ -62,13 +64,14 @@ int main(int argc, char *argv[]) {
     int opt, opti;
     int nbin=256, nthread=4, fnum_start=1, fnum_end=0;
     int quiet=0, raw_signed=1, use_polycos=1, cal=0;
+    double split_size_gb = 1.0;
     double tfold = 60.0; 
     double fold_frequency=0.0;
     char output_base[256] = "";
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuS:qh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -112,6 +115,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'u':
                 raw_signed=0;
+                break;
+            case 'S':
+                split_size_gb = atof(optarg);
                 break;
             case 'q':
                 quiet=1;
@@ -186,12 +192,22 @@ int main(int argc, char *argv[]) {
     pf_out.fptr = NULL;
     pf_out.filenum=0;
     pf_out.status=0;
-    pf_out.multifile=1;
     pf_out.quiet=0;
     pf_out.hdr.nbin=nbin;
     pf_out.sub.FITS_typecode = TFLOAT;
     pf_out.sub.bytes_per_subint = sizeof(float) * 
         pf_out.hdr.nchan * pf_out.hdr.npol * pf_out.hdr.nbin;
+    if (split_size_gb > 0.0) { 
+        pf_out.multifile = 1;
+        pf_out.rows_per_file = (int) (split_size_gb * (1024.0*1024.0*1024.0)
+                / (double)pf_out.sub.bytes_per_subint);
+        printf("Writing a maximum of %d subintegrations (~%.1f GB) per output file.\n", 
+            pf_out.rows_per_file, split_size_gb);
+    } else {
+        pf_out.multifile = 0;
+        printf("Writing a single output file.\n");
+    }
+
     rv = psrfits_create(&pf_out);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
@@ -272,6 +288,8 @@ int main(int argc, char *argv[]) {
         pc[0].used = 0;
         npc = 1;
     }
+    int *pc_written = (int *)malloc(sizeof(int) * npc);
+    for (i=0; i<npc; i++) pc_written[i]=0;
 
     /* Alloc total fold buf */
     struct foldbuf fb;
@@ -424,13 +442,32 @@ int main(int argc, char *argv[]) {
 
             /* Transpose, output subint */
             normalize_transpose_folds((float *)pf_out.sub.data, &fb);
+            int last_filenum = pf_out.filenum;
             psrfits_write_subint(&pf_out);
+
 
             /* Check for write errors */
             if (pf_out.status) {
                 fprintf(stderr, "Error writing subint.\n");
                 fits_report_error(stderr, pf_out.status);
                 exit(1);
+            }
+
+            /* Check if we started a new file */
+            if (pf_out.filenum!=last_filenum) {
+                /* No polycos yet written to this file */
+                for (i=0; i<npc; i++) pc_written[i]=0;
+            }
+
+            /* Write the current polyco if needed */
+            if (pc_written[ipc]==0) {
+                psrfits_write_polycos(&pf_out, &pc[ipc], 1);
+                if (pf_out.status) {
+                    fprintf(stderr, "Error writing polycos.\n");
+                    fits_report_error(stderr, pf_out.status);
+                    exit(1);
+                }
+                pc_written[ipc] = 1;
             }
 
             /* Clear counters, avgs */
@@ -456,13 +493,11 @@ int main(int argc, char *argv[]) {
     for (i=0; i<cur_thread; i++)  
         if (thread_id[i]) pthread_join(thread_id[i], NULL);
 
-    /* Write used polycos (except in cal mode) */
-    if (cal)
+    /* Remove polyco table in cal mode */
+    if (cal) {
         rv = psrfits_remove_polycos(&pf_out);
-    else {
-        rv = psrfits_write_polycos(&pf_out, pc, npc);
+        if (rv) { fits_report_error(stderr, rv); }
     }
-    if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     psrfits_close(&pf_out);
     psrfits_close(&pf);
