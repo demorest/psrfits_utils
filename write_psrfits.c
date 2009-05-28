@@ -135,7 +135,10 @@ int psrfits_create(struct psrfits *pf) {
         }
     }
     fits_update_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
-    // TODO: Need to include specific poln settings PF_HAND< FD_SANG, FD_XYPH
+    fits_update_key(pf->fptr, TINT, "FD_HAND", &(hdr->fd_hand), NULL, status);
+    fits_update_key(pf->fptr, TDOUBLE, "FD_SANG", &(hdr->fd_sang), NULL, status);
+    fits_update_key(pf->fptr, TDOUBLE, "FD_XYPH", &(hdr->fd_xyph), NULL, status);
+    fits_update_key(pf->fptr, TINT, "BE_PHASE", &(hdr->be_phase), NULL, status);
     fits_update_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
     if (mode==fold && !strcmp("CAL",hdr->obs_mode)) 
         fits_update_key(pf->fptr, TSTRING, "OBS_MODE", hdr->obs_mode, 

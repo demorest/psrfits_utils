@@ -83,6 +83,10 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "FA_REQ", &(hdr->feed_angle), NULL, 
             status);
     fits_read_key(pf->fptr, TDOUBLE, "SCANLEN", &(hdr->scanlen), NULL, status);
+    fits_read_key(pf->fptr, TDOUBLE, "FD_SANG", &(hdr->fd_sang), NULL, status);
+    fits_read_key(pf->fptr, TDOUBLE, "FD_XYPH", &(hdr->fd_xyph), NULL, status);
+    fits_read_key(pf->fptr, TINT, "FD_HAND", &(hdr->fd_hand), NULL, status);
+    fits_read_key(pf->fptr, TINT, "BE_PHASE", &(hdr->be_phase), NULL, status);
 
     fits_read_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
     hdr->MJD_epoch = (long double)itmp;
