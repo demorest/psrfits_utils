@@ -47,6 +47,8 @@ struct hdrinfo {
     double start_lst;       // Start LST (sec past 00h)
     double start_sec;       // Start time (sec past UTC 00h) 
     double chan_dm;         // DM that each channel was de-dispersed at (pc/cm^3)
+    double fd_sang;         // Reference angle for feed rotation (deg)
+    double fd_xyph;         // Cal signal poln cross-term phase (deg)
     int start_day;          // Start MJD (UTC days) (J - long integer)
     int scan_number;        // Number of scan
     int nbits;              // Number of bits per data sample 
@@ -61,6 +63,8 @@ struct hdrinfo {
     int ds_time_fact;       // Software downsampling factor in time (1 if none)
     int ds_freq_fact;       // Software downsampling factor in freq (1 if none)
     int onlyI;              // 1 if the software will only record Stokes I
+    int fd_hand;            // Receiver "handedness" or X/Y swap (+/-1)
+    int be_phase;           // Backend poln cross-term phase convention (+/-1)
 };
 
 struct subint {
