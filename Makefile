@@ -7,7 +7,7 @@ OBJS  = guppi_status.o guppi_databuf.o guppi_udp.o guppi_error.o \
 	guppi_params.o guppi_time.o guppi_thread_args.o \
 	write_psrfits.o read_psrfits.o misc_utils.o \
 	fold.o polyco.o hget.o hput.o sla.o downsample.o
-THREAD_PROGS = test_net_thread guppi_daq guppi_daq_fold
+THREAD_PROGS = test_net_thread guppi_daq guppi_daq_fold guppi_daq_server
 THREAD_OBJS  = guppi_net_thread.o guppi_rawdisk_thread.o \
 	       guppi_psrfits_thread.o guppi_fold_thread.o \
 	       guppi_null_thread.o
