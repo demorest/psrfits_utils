@@ -206,7 +206,7 @@ void init_subbanding(int nsub, double dm,
         exit(1);
     }
     si->dm = dm;
-    si->sub_df = pfi->hdr.orig_df * si->chan_per_sub;
+    si->sub_df = pfi->hdr.df * si->chan_per_sub;
     si->sub_freqs = (float *)malloc(sizeof(float) * si->nsub);
     si->chan_delays = (double *)malloc(sizeof(double) * si->nchan);
     si->sub_delays = (double *)malloc(sizeof(double) * si->nsub);
@@ -252,7 +252,7 @@ void init_subbanding(int nsub, double dm,
     }
     
     // Compute the subband properties, DM delays and offsets
-    lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.orig_df * 0.5;
+    lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.df * 0.5;
     for (ii = 0, cindex = 0 ; ii < si->nsub ; ii++) {
         dtmp = lofreq + ((double)ii + 0.5) * si->sub_df;
         si->sub_freqs[ii] = dtmp;
@@ -348,6 +348,9 @@ void set_output_vals(struct psrfits *pfi,
     pfo->rownum = 1;
     pfo->tot_rows = 0;
     pfo->N = 0;
+    // Set the "orig" values to those of the input file
+    pfo->hdr.orig_nchan = pfi->hdr.nchan;
+    pfo->hdr.orig_df = pfi->hdr.df;
     {
         char *inpath, *infile;
         split_path_file(pfi->basefilename, &inpath, &infile);

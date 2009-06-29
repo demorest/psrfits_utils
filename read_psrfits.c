@@ -67,6 +67,8 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
     fits_read_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
     hdr->orig_df = hdr->BW / hdr->orig_nchan;
+    fits_read_key(pf->fptr, TDOUBLE, "CHAN_DM", &(hdr->chan_dm), NULL, status);
+    if (*status==KEY_NO_EXIST) { hdr->chan_dm=0.0; *status=0; }
     fits_read_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
     fits_read_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
     // TODO warn if not TRACK?
