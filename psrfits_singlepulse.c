@@ -181,9 +181,17 @@ int main(int argc, char *argv[]) {
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
     if (output_base[0]=='\0') {
         /* Set up default output filename */
-        sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
-                pf_out.hdr.source, pf_out.hdr.start_day, 
-                (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
+        if (start_time>0.0) 
+            sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d_%4.4d_%3.3d%s", 
+                    pf_out.hdr.backend, 
+                    pf_out.hdr.source, pf_out.hdr.start_day, 
+                    (int)pf_out.hdr.start_sec, fnum_start,
+                    (int)start_time,
+                    cal ? "_cal" : "");
+        else
+            sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
+                    pf_out.hdr.source, pf_out.hdr.start_day, 
+                    (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
     }
     strcpy(pf_out.basefilename, output_base);
     if (cal) {
@@ -305,7 +313,7 @@ int main(int argc, char *argv[]) {
     double fmjd, fmjd0=0, fmjd_samp, fmjd_epoch;
     long long cur_pulse=0, last_pulse=0;
     double psr_freq=0.0;
-    int first=1, sampcount=0, last_filenum=0;
+    int first_loop=1, first_data=1, sampcount=0, last_filenum=0;
     int bytes_per_sample = pf.hdr.nchan * pf.hdr.npol;
     signal(SIGINT, cc);
     while (run) { 
@@ -345,11 +353,11 @@ int main(int argc, char *argv[]) {
         pc[ipc].used = 1; // Mark this polyco set as used for folding
 
         /* First time stuff */
-        if (first) {
+        if (first_loop) {
             fmjd0 = fmjd;
             psr_phase(&pc[ipc], imjd, fmjd, NULL, &last_pulse);
             pf_out.sub.offs=0.0;
-            first=0;
+            first_loop=0;
             for (i=0; i<pf.hdr.nchan; i++) { 
                 pf_out.sub.dat_weights[i]=pf.sub.dat_weights[i];
             }
@@ -361,6 +369,11 @@ int main(int argc, char *argv[]) {
             double cur_time = (fmjd - fmjd0) * 86400.0;
             if (cur_time<start_time) 
                 continue; 
+        }
+
+        if (first_data) {
+           psr_phase(&pc[ipc], imjd, fmjd, NULL, &last_pulse);
+           first_data=0;
         }
 
         /* Check to see if we're done */
