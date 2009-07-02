@@ -27,6 +27,8 @@ void usage() {
             "  -b nn, --nbin=nn         Number of profile bins (256)\n"
             "  -i nn, --initial=nn      Starting input file number (1)\n"
             "  -f nn, --final=nn        Ending input file number (auto)\n"
+            "  -T nn, --time=nn         Start nn seconds in (0)\n"
+            "  -L nn, --length=nn       Process nn total seconds (all)\n"
             "  -s src, --src=src        Override source name from file\n"
             "  -p file, --polyco=file   Polyco file to use (polyco.dat)\n"
             "  -P file, --parfile=file  Use given .par file\n"
@@ -47,6 +49,8 @@ int main(int argc, char *argv[]) {
         {"nthread", 1, NULL, 'j'},
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
+        {"time",    1, NULL, 'T'},
+        {"length",  1, NULL, 'L'},
         {"src",     1, NULL, 's'},
         {"polyco",  1, NULL, 'p'},
         {"parfile", 1, NULL, 'P'},
@@ -61,12 +65,13 @@ int main(int argc, char *argv[]) {
     int nbin=256, nthread=4, fnum_start=1, fnum_end=0;
     int quiet=0, raw_signed=1, use_polycos=1, cal=0;
     int npulse_per_file = 64;
+    double start_time=0.0, process_time=0.0;
     double fold_frequency=0.0;
     char output_base[256] = "";
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:n:b:j:i:f:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:n:b:j:i:f:T:L:s:p:P:F:Cuqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -86,6 +91,12 @@ int main(int argc, char *argv[]) {
                 break;
             case 'f':
                 fnum_end = atoi(optarg);
+                break;
+            case 'T':
+                start_time = atof(optarg);
+                break;
+            case 'L':
+                process_time = atof(optarg);
                 break;
             case 's':
                 strncpy(source, optarg, 24);
@@ -133,7 +144,7 @@ int main(int argc, char *argv[]) {
 
     /* Open first file */
     struct psrfits pf;
-    sprintf(pf.basefilename, argv[optind]);
+    strcpy(pf.basefilename, argv[optind]);
     pf.filenum = fnum_start;
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
     pf.hdr.chan_dm = 0.0; // What if folding data that has been partially de-dispersed?
@@ -170,11 +181,19 @@ int main(int argc, char *argv[]) {
     else { strncpy(source, pf.hdr.source, 24); source[23]='\0'; }
     if (output_base[0]=='\0') {
         /* Set up default output filename */
-        sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
-                pf_out.hdr.source, pf_out.hdr.start_day, 
-                (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
+        if (start_time>0.0) 
+            sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d_%4.4d_%3.3d%s", 
+                    pf_out.hdr.backend, 
+                    pf_out.hdr.source, pf_out.hdr.start_day, 
+                    (int)pf_out.hdr.start_sec, fnum_start,
+                    (int)start_time,
+                    cal ? "_cal" : "");
+        else
+            sprintf(output_base, "%s_SP_%s_%5.5d_%5.5d%s", pf_out.hdr.backend, 
+                    pf_out.hdr.source, pf_out.hdr.start_day, 
+                    (int)pf_out.hdr.start_sec, cal ? "_cal" : "");
     }
-    sprintf(pf_out.basefilename, output_base);
+    strcpy(pf_out.basefilename, output_base);
     if (cal) {
         sprintf(pf_out.hdr.obs_mode, "CAL");
         sprintf(pf_out.hdr.cal_mode, "SYNC");
@@ -294,7 +313,7 @@ int main(int argc, char *argv[]) {
     double fmjd, fmjd0=0, fmjd_samp, fmjd_epoch;
     long long cur_pulse=0, last_pulse=0;
     double psr_freq=0.0;
-    int first=1, sampcount=0, last_filenum=0;
+    int first_loop=1, first_data=1, sampcount=0, last_filenum=0;
     int bytes_per_sample = pf.hdr.nchan * pf.hdr.npol;
     signal(SIGINT, cc);
     while (run) { 
@@ -334,15 +353,36 @@ int main(int argc, char *argv[]) {
         pc[ipc].used = 1; // Mark this polyco set as used for folding
 
         /* First time stuff */
-        if (first) {
+        if (first_loop) {
             fmjd0 = fmjd;
             psr_phase(&pc[ipc], imjd, fmjd, NULL, &last_pulse);
             pf_out.sub.offs=0.0;
-            first=0;
+            first_loop=0;
             for (i=0; i<pf.hdr.nchan; i++) { 
                 pf_out.sub.dat_weights[i]=pf.sub.dat_weights[i];
             }
             last_filenum = pf_out.filenum;
+        }
+
+        /* Check to see if its time to process data */
+        if (start_time>0.0) {
+            double cur_time = (fmjd - fmjd0) * 86400.0;
+            if (cur_time<start_time) 
+                continue; 
+        }
+
+        if (first_data) {
+           psr_phase(&pc[ipc], imjd, fmjd, NULL, &last_pulse);
+           first_data=0;
+        }
+
+        /* Check to see if we're done */
+        if (process_time>0.0) {
+            double cur_time = (fmjd - fmjd0) * 86400.0;
+            if (cur_time > start_time + process_time) {
+                run=0;
+                break;
+            }
         }
 
         /* for singlepulse: loop over samples, output a new subint
