@@ -148,10 +148,10 @@ int psrfits_create(struct psrfits *pf) {
     fits_update_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
     fits_update_key(pf->fptr, TDOUBLE, "CHAN_DM", &(hdr->chan_dm), NULL, status);
     fits_update_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
-    if (strcmp("TRACK", hdr->track_mode)) {
-        printf("Warning!:  We don't currently handle non-tracking observations!\n");
-        fits_update_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
+    if (!strcmp("UNKNOWN", hdr->track_mode)) {
+        printf("Warning!:  Unknown telescope tracking mode!\n");
     }
+    fits_update_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
     // TODO: will need to change the following if we aren't tracking!
     fits_update_key(pf->fptr, TSTRING, "RA", hdr->ra_str, NULL, status);
     fits_update_key(pf->fptr, TSTRING, "DEC", hdr->dec_str, NULL, status);
