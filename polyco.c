@@ -330,8 +330,8 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
     /* Call tempo */
     int mjd0, mjd1;
     mjd0 = (int)hdr->MJD_epoch;
-    //mjd1 = mjd0+1;
     mjd1 = (int)(hdr->MJD_epoch + hdr->scanlen/86400.0 + 0.5);
+    if (mjd1==mjd0) mjd1++;
     sprintf(line, "echo %d %d | tempo -z -f pulsar.par > /dev/null",
             mjd0, mjd1);
     system(line);
