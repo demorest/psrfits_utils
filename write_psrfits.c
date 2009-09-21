@@ -66,7 +66,7 @@ int psrfits_create(struct psrfits *pf) {
             *last_slash = '\0';
             printf("Using directory '%s' for output.\n", datadir);
             char cmd[1024];
-            sprintf(cmd, "mkdir -m 775 -p %s", datadir);
+            sprintf(cmd, "mkdir -m 1777 -p %s", datadir);
             system(cmd);
         }
     }
