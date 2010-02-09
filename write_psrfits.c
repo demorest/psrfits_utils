@@ -83,20 +83,26 @@ int psrfits_create(struct psrfits *pf) {
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
-    char *guppi_dir = getenv("GUPPI_DIR");
+    char template_dir[1024];
     char template_file[1024];
+#ifdef PSRFITS_TEMPLATE_DIR
+    sprintf(template_dir, "%s", PSRFITS_TEMPLATE_DIR);
+#else
+    char *guppi_dir = getenv("GUPPI_DIR");
     if (guppi_dir==NULL) {
         fprintf(stderr, 
                 "Error: GUPPI_DIR environment variable not set, exiting.\n");
         exit(1);
     }
+    sprintf(template_dir, "%s/src", guppi_dir);
+#endif
     printf("Opening file '%s' ", pf->filename);
     if (mode==search) { 
         printf("in search mode.\n");
-        sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_SEARCH_TEMPLATE);
+        sprintf(template_file, "%s/%s", template_dir, PSRFITS_SEARCH_TEMPLATE);
     } else if (mode==fold) { 
         printf("in fold mode.\n");
-        sprintf(template_file, "%s/%s", guppi_dir, PSRFITS_FOLD_TEMPLATE);
+        sprintf(template_file, "%s/%s", template_dir, PSRFITS_FOLD_TEMPLATE);
     }
     fits_create_template(&(pf->fptr), pf->filename, template_file, status);
 
