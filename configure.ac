@@ -10,6 +10,7 @@ AC_PROG_LIBTOOL
 AX_PTHREAD
 
 #AC_HAVE_LIBRARY([cfitsio])
+AC_CHECK_LIB([m],[sin])
 AC_CHECK_LIB([cfitsio],[ffgky])
 
 #AC_CONFIG_HEADERS([config.h])
