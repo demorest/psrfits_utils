@@ -10,7 +10,6 @@ int main(int argc, char *argv[])
     int ii, jj, status;
     int numprocs, myid;
     struct psrfits pf, pftemp;
-    Cmdline *cmd;
     char hostname[20];
 
     MPI_Init(&argc, &argv);
@@ -45,20 +44,11 @@ int main(int argc, char *argv[])
     
     if (argc == 1) {
         if (myid == 0) {
-            Program = argv[0];
-            usage();
+            printf("usage:  mpimerge_psrfits basefilename\n\n");
         }
         MPI_Finalize();
         exit(1);
     }
-    
-    // Parse the command line using the excellent program Clig
-    
-    cmd = parseCmdline(argc, argv);
-
-#ifdef DEBUG
-    showOptionValues();
-#endif
     
     if (myid == 0) { // Master proc only
         printf("\n\n");
@@ -66,7 +56,7 @@ int main(int argc, char *argv[])
         printf("              by Scott M. Ransom\n\n");
     } else { // all other procs
         sprintf(pf.basefilename, "/data/gpu/%s/partial/%s", 
-                hostname, cmd->argv[0]);
+                hostname, argv[1]);
         
     }
 
@@ -107,7 +97,7 @@ int main(int argc, char *argv[])
         status = psrfits_close(&pf)
         
         // Now create the output PSTFITS file
-        strcpy(pf.basefilename, cmd->argv[0]);
+        strcpy(pf.basefilename, argv[1]);
         pf.filenum = 0;
         pf.multifile = 1;
         status = psrfits_create(&pf);
