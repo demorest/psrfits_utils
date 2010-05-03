@@ -108,8 +108,8 @@ int psrfits_open(struct psrfits *pf) {
 
     // Read some more stuff
     fits_read_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
-    fits_read_key(pf->fptr, TSTRING, "POL_TYPE", ctmp, NULL, status);
-    if (strncmp(ctmp, "AA+BB", 6)==0) hdr->summed_polns=1;
+    fits_read_key(pf->fptr, TSTRING, "POL_TYPE", &(hdr->poln_order), NULL, status);
+    if (strncmp(hdr->poln_order, "AA+BB", 6)==0) hdr->summed_polns=1;
     else hdr->summed_polns=0;
     fits_read_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
     fits_read_key(pf->fptr, TINT, "NBIN", &(hdr->nbin), NULL, status);
