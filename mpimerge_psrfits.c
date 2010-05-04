@@ -6,11 +6,31 @@
 
 #define HDRLEN 14400
 
+void reorder_data(unsigned char* outbuf, unsigned char *inbuf, 
+                  int nband, int nspec, int npol, int nchan)
+{
+    int band, spec, pol, inoff = 0, outoff = 0;
+    int spband = nspec * npol * nchan;
+    int spspec = npol * nchan;
+
+    for (spec = 0 ; spec < nspec ; spec++) {
+        for (pol = 0 ; pol < npol ; pol++) {
+            for (band = 0 ; band < nband ; band++) {
+                inoff = band * spband + pol * nchan + spec * spspec;
+                memcpy(outbuf + outoff, inbuf + inoff, nchan);
+                outoff += nchan;
+            }
+        }
+    }    
+}
+
+
 int main(int argc, char *argv[])
 {
-    int ii, nc, ncnp, status=0, statsum=0;
+    int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
     int numprocs, numbands, myid;
     int *counts, *offsets;
+    unsigned char *tmpbuf = NULL;
     struct psrfits pf;
     char hostname[100];
     MPI_Status mpistat;
@@ -109,14 +129,17 @@ int main(int argc, char *argv[])
         pf.filename[0] = '\0';
         nc = pf.hdr.nchan;
         ncnp = pf.hdr.nchan * pf.hdr.npol;
+        gpubps = pf.sub.bytes_per_subint;
         pf.hdr.orig_nchan *= numbands;
         pf.hdr.nchan *= numbands;
         pf.hdr.fctr = pf.hdr.fctr - 0.5 * pf.hdr.BW + numbands/2.0 * pf.hdr.BW;
         pf.hdr.BW *= numbands;
         pf.sub.bytes_per_subint *= numbands;
-        long long filelen = 10 * (1L<<30);  // In GB
+        long long filelen = 40 * (1L<<30);  // In GB
         pf.rows_per_file = filelen / pf.sub.bytes_per_subint;
         status = psrfits_create(&pf);
+        // For in-memory transpose of data
+        tmpbuf = (unsigned char *)malloc(pf.sub.bytes_per_subint);
     }
 
     // Open the input PSRFITs files for real
@@ -124,6 +147,7 @@ int main(int argc, char *argv[])
         status = psrfits_open(&pf);
         nc = pf.hdr.nchan;
         ncnp = pf.hdr.nchan * pf.hdr.npol;
+        gpubps = pf.sub.bytes_per_subint;
     }
 
     // Alloc data buffers for the PSRFITS files
@@ -204,22 +228,21 @@ int main(int argc, char *argv[])
                              pf.sub.dat_scales, counts, offsets, MPI_FLOAT, 
                              0, MPI_COMM_WORLD);
 
-        // Vectors of length nchan for the raw data
+        // Vectors of length pf.sub.bytes_per_subint for the raw data
         for (ii = 1 ; ii < numprocs ; ii++) {
-            counts[ii] = nc;
-            offsets[ii] = (ii - 1) * nc;
+            counts[ii] = gpubps;
+            offsets[ii] = (ii - 1) * gpubps;
         }
-        // Step over all the spectra * polns (Note: this does a "corner turn)
-        for (ii = 0 ; ii < pf.hdr.nsblk * pf.hdr.npol ; ii++) {
-            status = MPI_Gatherv(pf.sub.data + ii * nc, nc, MPI_UNSIGNED_CHAR, 
-                                 pf.sub.data + ii * nc * numbands, 
-                                 counts, offsets, MPI_UNSIGNED_CHAR, 
-                                 0, MPI_COMM_WORLD);
-        }
-            
-        // Write the new row to the output file
-        if (myid == 0)
+        status = MPI_Gatherv(pf.sub.data, gpubps, MPI_UNSIGNED_CHAR, 
+                             tmpbuf, counts, offsets, MPI_UNSIGNED_CHAR, 
+                             0, MPI_COMM_WORLD);
+
+        // Reorder and write the new row to the output file
+        if (myid == 0) {
+            reorder_data(pf.sub.data, tmpbuf, numbands, 
+                         pf.hdr.nsblk, pf.hdr.npol, nc);
             status = psrfits_write_subint(&pf);
+        }
 
     } while (statsum == 0);
 
@@ -229,6 +252,7 @@ int main(int argc, char *argv[])
     free(pf.sub.dat_offsets);
     free(pf.sub.dat_scales);
     free(pf.sub.data);
+    if (myid == 0) free(tmpbuf);
     free(counts);
     free(offsets);
     
