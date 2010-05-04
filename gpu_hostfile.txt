@@ -1,0 +1,9 @@
+localhost
+gpu1_10
+gpu2_10
+gpu3_10
+gpu4_10
+gpu5_10
+gpu6_10
+gpu7_10
+gpu8_10
