@@ -114,6 +114,8 @@ int main(int argc, char *argv[])
         pf.hdr.fctr = pf.hdr.fctr - 0.5 * pf.hdr.BW + numbands/2.0 * pf.hdr.BW;
         pf.hdr.BW *= numbands;
         pf.sub.bytes_per_subint *= numbands;
+        long long filelen = 10 * (1L<<30);  // In GB
+        pf.rows_per_file = filelen / pf.sub.bytes_per_subint;
         status = psrfits_create(&pf);
     }
 
