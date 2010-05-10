@@ -26,3 +26,4 @@ fold_psrfits
 libtool
 psrfits_singlepulse
 psrfits_subband
+mpimerge_psrfits
