@@ -294,11 +294,28 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         if (ibin>=f->nbin) { ibin-=f->nbin; }
         fptr = &f->data[ibin*f->nchan*f->npol];
         if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
-            if (raw_signed)
+            if (raw_signed==1)
                 vector_accumulate_8bit(fptr, 
                         &data[i*f->nchan*f->npol],
                         f->nchan*f->npol);
-            else 
+            else if (raw_signed==2) {
+                // First 2 polns are unsigned, last 2 are signed
+                vector_accumulate_8bit_unsigned(fptr, 
+                        &data[i*f->nchan*f->npol],
+                        f->nchan*2);
+                vector_accumulate_8bit(fptr + 2*f->nchan, 
+                        &data[i*f->nchan*f->npol + 2*f->nchan],
+                        f->nchan*2);
+            } else if (raw_signed==3) {
+                // First 1 pol is unsigned, last 3 are signed
+                vector_accumulate_8bit_unsigned(fptr, 
+                        &data[i*f->nchan*f->npol],
+                        f->nchan);
+                vector_accumulate_8bit(fptr + f->nchan, 
+                        &data[i*f->nchan*f->npol + f->nchan],
+                        f->nchan*3);
+            } else 
+                // All unsigned
                 vector_accumulate_8bit_unsigned(fptr, 
                         (unsigned char *)&data[i*f->nchan*f->npol],
                         f->nchan*f->npol);

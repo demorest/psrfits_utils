@@ -35,6 +35,7 @@ void usage() {
             "  -F nn, --foldfreq=nn     Fold at constant freq (Hz)\n"
             "  -C, --cal                Cal folding mode\n"
             "  -u, --unsigned           Raw data is unsigned\n"
+            "  -U n, --nunsigned        Num of unsigned polns\n"
             "  -S size, --split=size    Approximate max size per output file, GB (1)\n"
             "  -q, --quiet              No progress indicator\n"
           );
@@ -56,6 +57,7 @@ int main(int argc, char *argv[]) {
         {"foldfreq",1, NULL, 'F'},
         {"cal",     0, NULL, 'C'},
         {"unsigned",0, NULL, 'u'},
+        {"nunsigned",1, NULL, 'U'},
         {"split",   1, NULL, 'S'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuS:qh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuU:S:qh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -115,6 +117,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'u':
                 raw_signed=0;
+                break;
+            case 'U':
+                raw_signed = 4 - atoi(optarg);
                 break;
             case 'S':
                 split_size_gb = atof(optarg);
