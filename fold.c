@@ -353,3 +353,19 @@ int normalize_transpose_folds(float *out, const struct foldbuf *f) {
     }
     return(0);
 }
+
+/* Apply a per-channel/poln scale and offset */
+/* Note, this only works on pre-normalized fold results! */
+int scale_offset_folds(struct foldbuf *f, 
+        const float *scale, const float *offset) {
+    int ibin, ii;
+    float tmp;
+    for (ibin=0; ibin<f->nbin; ibin++) {
+        for (ii=0; ii<f->nchan*f->npol; ii++) {
+            tmp = f->data[ii + ibin*f->nchan*f->npol]; 
+            f->data[ii + ibin*f->nchan*f->npol] = tmp*scale[ii] + 
+                (float)f->count[ibin]*offset[ii]; 
+        }
+    }
+    return(0);
+}

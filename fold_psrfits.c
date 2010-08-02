@@ -37,6 +37,7 @@ void usage() {
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -U n, --nunsigned        Num of unsigned polns\n"
             "  -S size, --split=size    Approximate max size per output file, GB (1)\n"
+            "  -A, --apply              Apply input scale/offset to the results\n",
             "  -q, --quiet              No progress indicator\n"
           );
 }
@@ -59,13 +60,14 @@ int main(int argc, char *argv[]) {
         {"unsigned",0, NULL, 'u'},
         {"nunsigned",1, NULL, 'U'},
         {"split",   1, NULL, 'S'},
+        {"apply",   0, NULL, 'A'},
         {"quiet",   0, NULL, 'q'},
         {"help",    0, NULL, 'h'},
         {0,0,0,0}
     };
     int opt, opti;
     int nbin=256, nthread=4, fnum_start=1, fnum_end=0;
-    int quiet=0, raw_signed=1, use_polycos=1, cal=0;
+    int quiet=0, raw_signed=1, use_polycos=1, cal=0, apply_scale=0;
     double split_size_gb = 1.0;
     double tfold = 60.0; 
     double fold_frequency=0.0;
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]) {
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuU:S:qh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuU:S:Aqh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -123,6 +125,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'S':
                 split_size_gb = atof(optarg);
+                break;
+            case 'A':
+                apply_scale = 1;
                 break;
             case 'q':
                 quiet=1;
@@ -235,12 +240,13 @@ int main(int argc, char *argv[]) {
     int i, ipol, ichan;
     float offset_uv=0.0;  
     // Extra cross-term offset for GUPPI
-    if (strcmp("GUPPI",pf.hdr.backend)==0) { 
+    if (strcmp("GUPPI",pf.hdr.backend)==0 && apply_scale==0) { 
         offset_uv=0.5;
         fprintf(stderr, "Found backend=GUPPI, setting offset_uv=%f\n",
                 offset_uv);
     }
-    // TODO: copy these from the input file
+    // Initialize scale/output and weights.
+    // These get copied from the input file later during the main loop.
     for (ipol=0; ipol<pf.hdr.npol; ipol++) {
         for (ichan=0; ichan<pf.hdr.nchan; ichan++) {
             float offs = 0.0;
@@ -321,6 +327,10 @@ int main(int argc, char *argv[]) {
         fargs[i].raw_signed=raw_signed;
         malloc_foldbuf(fargs[i].fb);
         clear_foldbuf(fargs[i].fb);
+        fargs[i].scale = (float *)malloc(sizeof(float) 
+                * pf.hdr.nchan * pf.hdr.npol);
+        fargs[i].offset = (float *)malloc(sizeof(float) 
+                * pf.hdr.nchan * pf.hdr.npol);
     }
 
     /* Main loop */
@@ -386,7 +396,13 @@ int main(int argc, char *argv[]) {
         }
         pc[ipc].used = 1; // Mark this polyco set as used for folding
 
-        /* TODO: deal with scale/offset */
+        /* Copy scale/offset from input to output if we're not applying it */
+        if (apply_scale==0) {
+            for (i=0; i<pf.hdr.nchan*pf.hdr.npol; i++) {
+                pf_out.sub.dat_scales[i] = pf.sub.dat_scales[i];
+                pf_out.sub.dat_offsets[i] = pf.sub.dat_offsets[i];
+            }
+        }
 
         /* Fold this subint */
         fargs[cur_thread].pc = &pc[ipc];
@@ -397,6 +413,12 @@ int main(int argc, char *argv[]) {
         if (rv) {
             fprintf(stderr, "Thread creation error.\n");
             exit(1);
+        }
+        if (apply_scale) {
+            for (i=0; i<pf.hdr.nchan*pf.hdr.npol; i++) {
+                fargs[cur_thread].scale[i] = pf.sub.dat_scales[i];
+                fargs[cur_thread].offset[i] = pf.sub.dat_offsets[i];
+            }
         }
         cur_thread++;
 
@@ -412,6 +434,11 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Thread join error.\n");
                     exit(1);
                 }
+
+                /* Apply scale and offset here */
+                if (apply_scale) 
+                    scale_offset_folds(fargs[i].fb, fargs[i].scale,
+                            fargs[i].offset);
 
                 /* Combine its result into total fold */
                 accumulate_folds(&fb, fargs[i].fb);

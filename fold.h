@@ -30,6 +30,8 @@ struct fold_args {
     double tsamp;
     int raw_signed;
     struct foldbuf *fb;
+    float *scale;
+    float *offset;
 };
 
 void *fold_8bit_power_thread(void *_args);
@@ -37,6 +39,9 @@ void *fold_8bit_power_thread(void *_args);
 int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
         const char *data, int nsamp, double tsamp, int raw_signed,
         struct foldbuf *f);
+
+int scale_offset_folds(struct foldbuf *f, 
+        const float *scale, const float *offset);
 
 int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f);
 
