@@ -338,10 +338,12 @@ void set_output_vals(struct psrfits *pfi,
         int bytes_per_subint;
         filelen = cmd->filelen * (1L<<30);  // In GB
         bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
-                            pfo->hdr.npol * pfo->hdr.nsblk) / (8 * si->chan_per_sub);
+                            pfo->hdr.npol * pfo->hdr.nsblk) / \
+            (8 * si->chan_per_sub * cmd->dstime * (cmd->onlyIP ? 4 : 1));
         pfo->rows_per_file = filelen / bytes_per_subint;
     } else {  // By default, keep the filesize roughly constant
-        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub;
+        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub * 
+            cmd->dstime * (cmd->onlyIP ? 4 : 1);
     }
     pfo->filenum = 0; // This causes the output files to be created
     pfo->filename[0] = '\0';
@@ -364,6 +366,8 @@ void set_output_vals(struct psrfits *pfi,
     pfo->sub.dat_offsets = si->offsets;
     pfo->sub.dat_scales  = si->scales;
     pfo->hdr.ds_freq_fact = si->chan_per_sub;
+    pfo->hdr.ds_time_fact = cmd->dstime;
+    pfo->hdr.onlyI = cmd->onlyIP;
     pfo->hdr.chan_dm = si->dm;
     pfo->sub.data = si->outbuffer;
 }
@@ -473,6 +477,14 @@ int main(int argc, char *argv[]) {
         // Now create the subbanded row in the output buffer
         make_subbands(&pfi, &si);
         //get_sub_stats(&pfo, &si);
+
+        // Output only Stokes I (in place)
+        if (pfo.hdr.onlyI && pfo.hdr.npol==4)
+            get_stokes_I(&pfo);
+
+        // Downsample in time (in place)
+        if (pfo.hdr.ds_time_fact > 1)
+            downsample_time(&pfo);
 
         // Write the new row to the output file
         pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
