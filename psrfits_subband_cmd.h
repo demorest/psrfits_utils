@@ -40,7 +40,7 @@ typedef struct s_Cmdline {
   /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
   char bytesP;
   /***** -onlyI: Only output total intensity data */
-  char inlyIP;
+  char onlyIP;
   /***** -weights: Filename containing ASCII list of channels and weights to use */
   char wgtsfileP;
   char* wgtsfile;

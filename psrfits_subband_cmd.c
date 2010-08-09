@@ -53,7 +53,7 @@ static Cmdline cmd = {
   /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
   /* bytesP = */ 0,
   /***** -onlyI: Only output total intensity data */
-  /* inlyIP = */ 0,
+  /* onlyIP = */ 0,
   /***** -weights: Filename containing ASCII list of channels and weights to use */
   /* wgtsfileP = */ 0,
   /* wgtsfile = */ (char*)0,
@@ -853,7 +853,7 @@ showOptionValues(void)
   }
 
   /***** -onlyI: Only output total intensity data */
-  if( !cmd.inlyIP ) {
+  if( !cmd.onlyIP ) {
     printf("-onlyI not found.\n");
   } else {
     printf("-onlyI found:\n");
@@ -912,7 +912,7 @@ usage(void)
   fprintf(stderr,"%s","                1 char* value\n");
   fprintf(stderr,"%s","        infile: Input file name(s) of the PSRFITs datafiles\n");
   fprintf(stderr,"%s","                1...2000 values\n");
-  fprintf(stderr,"%s","  version: 25Feb09\n");
+  fprintf(stderr,"%s","  version: 09Aug10\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -1006,7 +1006,7 @@ parseCmdline(int argc, char **argv)
     }
 
     if( 0==strcmp("-onlyI", argv[i]) ) {
-      cmd.inlyIP = 1;
+      cmd.onlyIP = 1;
       continue;
     }
 
