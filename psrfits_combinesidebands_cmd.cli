@@ -1,0 +1,13 @@
+Name psrfits_combinesidebands
+
+Usage "\nCombine two sidebands of PSRFITS search-mode data.\n"
+
+Version [exec date +%d%b%y]
+
+Commandline full_cmd_line
+
+# Options (in order you want them to appear)
+
+# Rest of command line:
+Rest infile {Input file name(s) of the PSRFITs datafiles} \
+        -c 1 2000
