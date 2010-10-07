@@ -24,7 +24,7 @@ libpsrfits_utils_la_SOURCES = \
 LDADD = libpsrfits_utils.la
 AM_CPPFLAGS = -DPSRFITS_TEMPLATE_DIR='"$(datadir)"'
 
-bin_PROGRAMS = fold_psrfits psrfits_singlepulse psrfits_subband
+bin_PROGRAMS = fold_psrfits psrfits_singlepulse psrfits_subband psrfits_combinesidebands
 
 fold_psrfits_CFLAGS = @PTHREAD_CFLAGS@ $(AM_CFLAGS)
 fold_psrfits_LDFLAGS = @PTHREAD_CFLAGS@ $(AM_LDFLAGS)
@@ -32,3 +32,6 @@ fold_psrfits_LDADD = libpsrfits_utils.la @PTHREAD_LIBS@
 
 psrfits_subband_SOURCES = psrfits_subband.c \
 			  psrfits_subband_cmd.h psrfits_subband_cmd.c
+
+psrfits_combinesidebands_SOURCES = psrfits_combinesidebands.c \
+				   psrfits_combinesidebands_cmd.h psrfits_combinesidebands_cmd.c

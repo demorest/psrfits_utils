@@ -24,7 +24,7 @@ int psrfits_open(struct psrfits *pf) {
 
     sprintf(ctmp, "%s_%04d.fits", pf->basefilename, pf->filenum-1);
     if (pf->filename[0]=='\0' || 
-        ((pf->filenum > 1) && (strcmp(ctmp, pf->filename)==0)))
+        ((pf->filenum > 1) && (!strcmp(ctmp, pf->filename)==0)))
         // The 2nd test checks to see if we are creating filenames ourselves
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
