@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
       chanskip=(int)numchandiff;*/
 
     double upperfreqoflower,nextfromlower,lowerfreqofupper,numchandiff;
-    int chanskip;
+    int upchanskip,lowchanskip;
 
 /*    //Using the number of skipped channels, find new values for nchan,BW, and fctr
     pfo.hdr.nchan=pfupper.hdr.nchan+pflower.hdr.nchan-chanskip;
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
         }
         nextfromlower=upperfreqoflower+fabs(pflower.hdr.df);
         numchandiff=(nextfromlower-lowerfreqofupper)/fabs(pflower.hdr.df);
-        chanskip;
+        int chanskip;
         if(numchandiff>0)
         {
           if(numchandiff-(double)((int)numchandiff)>.5)
@@ -155,11 +155,19 @@ int main(int argc, char *argv[]) {
         }
         else
           chanskip=0;
+        if(chanskip%2==1)
+        {
+          upchanskip=chanskip/2;
+          lowchanskip=chanskip/2+1;
+        }
+        else
+          upchanskip=lowchanskip=chanskip/2;
         printf("upperfreqoflower=%f\n",upperfreqoflower);
         printf("lowerfreqofupper=%f\n",lowerfreqofupper);
         printf("nextfromlower=%f\n",nextfromlower);
         printf("numchandiff=%f\n",numchandiff);
-        printf("chanskip=%d\n",chanskip);
+        printf("upchanskip=%d\n",upchanskip);
+        printf("lowchanskip=%d\n",lowchanskip);
         printf("nbits=%d\n",pfo.hdr.nbits);
         //Using the number of skipped channels, find new values for nchan,BW, and fctr
         pfo.hdr.nchan=pfupper.hdr.nchan+pflower.hdr.nchan-chanskip+2;
@@ -194,39 +202,30 @@ int main(int argc, char *argv[]) {
           //Copy frequency labels
           pfo.sub.dat_freqs[1]=pfupper.sub.dat_freqs[0]+fabs(pflower.hdr.df);
           pfo.sub.dat_freqs[0]=pfo.sub.dat_freqs[1]+fabs(pflower.hdr.df);
-          memcpy(pfo.sub.dat_freqs+2,pfupper.sub.dat_freqs,sizeof(float)*(pfupper.hdr.nchan-chanskip));
-          memcpy((pfo.sub.dat_freqs)+pfupper.hdr.nchan-chanskip+2,pflower.sub.dat_freqs,sizeof(float)*pflower.hdr.nchan);
+          memcpy(pfo.sub.dat_freqs+2,pfupper.sub.dat_freqs,sizeof(float)*(pfupper.hdr.nchan-upchanskip));
+          memcpy((pfo.sub.dat_freqs)+pfupper.hdr.nchan-upchanskip+2,pflower.sub.dat_freqs+lowchanskip,sizeof(float)*(pflower.hdr.nchan-lowchanskip));
           //Copy weights
           pfo.sub.dat_weights[0]=pfo.sub.dat_weights[1]=0;
-          memcpy(pfo.sub.dat_weights+2,pfupper.sub.dat_weights,sizeof(float)*(pfupper.hdr.nchan-chanskip));
-          memcpy((pfo.sub.dat_weights+2)+pfupper.hdr.nchan-chanskip,pflower.sub.dat_weights,sizeof(float)*pflower.hdr.nchan);
+          memcpy(pfo.sub.dat_weights+2,pfupper.sub.dat_weights,sizeof(float)*(pfupper.hdr.nchan-upchanskip));
+          memcpy((pfo.sub.dat_weights+2)+pfupper.hdr.nchan-upchanskip,pflower.sub.dat_weights+lowchanskip,sizeof(float)*(pflower.hdr.nchan-lowchanskip));
           //Copy offsets
           pfo.sub.dat_offsets[0]=pfo.sub.dat_offsets[1]=0;
-          memcpy(pfo.sub.dat_offsets+(2*pfo.hdr.npol),pfupper.sub.dat_offsets,sizeof(float)*(pfupper.hdr.nchan-chanskip)*pfupper.hdr.npol);
-          memcpy((pfo.sub.dat_offsets)+(pfupper.hdr.nchan-chanskip)*pfo.hdr.npol+(2*pfo.hdr.npol),pflower.sub.dat_offsets,sizeof(float)*(pflower.hdr.nchan)*pflower.hdr.npol);
+          memcpy(pfo.sub.dat_offsets+(2*pfo.hdr.npol),pfupper.sub.dat_offsets,sizeof(float)*(pfupper.hdr.nchan-upchanskip)*pfupper.hdr.npol);
+          memcpy((pfo.sub.dat_offsets)+(pfupper.hdr.nchan-upchanskip)*pfo.hdr.npol+(2*pfo.hdr.npol),pflower.sub.dat_offsets+lowchanskip,sizeof(float)*(pflower.hdr.nchan-lowchanskip)*pflower.hdr.npol);
           //Copy scales
           pfo.sub.dat_scales[0]=pfo.sub.dat_scales[1]=0;
-          memcpy(pfo.sub.dat_scales+(2*pfo.hdr.npol),pfupper.sub.dat_scales,sizeof(float)*(pfupper.hdr.nchan-chanskip)*pfupper.hdr.npol);
-          memcpy((pfo.sub.dat_scales)+(pfupper.hdr.nchan-chanskip)*pfo.hdr.npol+(2*pfo.hdr.npol),pflower.sub.dat_scales,sizeof(float)*(pflower.hdr.nchan)*pflower.hdr.npol);
+          memcpy(pfo.sub.dat_scales+(2*pfo.hdr.npol),pfupper.sub.dat_scales,sizeof(float)*(pfupper.hdr.nchan-upchanskip)*pfupper.hdr.npol);
+          memcpy((pfo.sub.dat_scales)+(pfupper.hdr.nchan-upchanskip)*pfo.hdr.npol+(2*pfo.hdr.npol),pflower.sub.dat_scales+lowchanskip,sizeof(float)*(pflower.hdr.nchan-lowchanskip)*pflower.hdr.npol);
           //Copy the data
           int i=0;
           //int k=0;
           for(i=0;i<pfo.hdr.nsblk;++i)
           {
             int j=0;
-//            printf("upper %d %d %d\n",(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0))),i*(int)((double)pfupper.hdr.nchan*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),(int)((double)(pfupper.hdr.nchan-chanskip)*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)));
-            memcpy(pfo.sub.data+(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0))),pfupper.sub.data+i*(int)((double)pfupper.hdr.nchan*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),(int)((double)(pfupper.hdr.nchan-chanskip)*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)));
-//            printf("lower %d %d %d\n",(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0)))+(int)((double)pfupper.hdr.nchan-chanskip*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),i*(int)((double)pflower.hdr.nchan*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)),(int)((double)pflower.hdr.nchan*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)));
-            memcpy(pfo.sub.data+(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0)))+(int)((double)(pfupper.hdr.nchan-chanskip)*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),pflower.sub.data+i*(int)((double)pflower.hdr.nchan*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)),(int)((double)pflower.hdr.nchan*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)));
-            //for(j=0;j<pfupper.hdr.nchan-chanskip;++j,++k)
-            //  printf("%d %d %d %d\n",i*pfupper.hdr.nchan+j,pfupper.sub.data[i*pfupper.hdr.nchan+j],k,pfo.sub.data[k]);
-            //for(j=0;j<pflower.hdr.nchan;++j,++k)
-            //  printf("%d %d %d %d\n",i*pflower.hdr.nchan+j,pflower.sub.data[i*pflower.hdr.nchan+j],k,pfo.sub.data[k]);
+            memcpy(pfo.sub.data+(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0))),pfupper.sub.data+i*(int)((double)pfupper.hdr.nchan*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),(int)((double)(pfupper.hdr.nchan-upchanskip)*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)));
+            memcpy(pfo.sub.data+(i*(int)((double)pfo.hdr.nchan*(double)pfo.hdr.npol*((double)pfo.hdr.nbits/8.0))+(int)(2.0*((double)pfo.hdr.nbits/8.0)))+(int)((double)(pfupper.hdr.nchan-upchanskip)*(double)pfupper.hdr.npol*((double)pfupper.hdr.nbits/8.0)),pflower.sub.data+i*(int)((double)pflower.hdr.nchan*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0))+(int)((double)lowchanskip*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)),(int)((double)(pflower.hdr.nchan-lowchanskip)*(double)pflower.hdr.npol*((double)pflower.hdr.nbits/8.0)));
           }
           psrfits_write_subint(&pfo);
-          //++loops;
-          //if(loops==2)
-          //  exit(0);
         }
         else
         {
