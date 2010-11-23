@@ -1,7 +1,6 @@
-// This code is to partially de-disperse and subband
-// PSRFITS search-mode data.  Currently it is specifically
-// for GUPPI data, however, I intend to make it more general
-// eventually.   S. Ransom  Oct 2008
+//This code combines the two sidebands from the Mock 
+//spectrometers at Arecibo. K. Stovall  Oct 2010
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -85,25 +84,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     
-    //Find the number of channels in the upper sideband which will be skipped
-/*    double upperfreqoflower=pflower.hdr.fctr+(double)(pflower.hdr.nchan/2)*fabs(pflower.hdr.df);
-    double nextfromlower=upperfreqoflower+fabs(pflower.hdr.df);
-    double lowerfreqofupper=pfupper.hdr.fctr-(double)(pfupper.hdr.nchan/2)*fabs(pfupper.hdr.df);
-    double numchandiff=(nextfromlower-lowerfreqofupper)/fabs(pfupper.hdr.df);
-    int chanskip;
-    if(numchandiff-(double)((int)numchandiff)>.5)
-      chanskip=(int)numchandiff+1;
-    else
-      chanskip=(int)numchandiff;*/
-
     double upperfreqoflower,nextfromlower,lowerfreqofupper,numchandiff;
     int upchanskip,lowchanskip;
-
-/*    //Using the number of skipped channels, find new values for nchan,BW, and fctr
-    pfo.hdr.nchan=pfupper.hdr.nchan+pflower.hdr.nchan-chanskip;
-    pfo.hdr.BW=(double)pfo.hdr.nchan*fabs(pflower.hdr.df);
-    pfo.hdr.fctr=(pflower.hdr.fctr-(double)(pflower.hdr.nchan/2)*fabs(pflower.hdr.df))+pfo.hdr.BW/2.0;
-    pfo.sub.bytes_per_subint=pfo.hdr.nchan*pfo.hdr.nsblk*pfo.hdr.nbits/8*pfo.hdr.npol;*/
 
     pflower.sub.dat_freqs = (float *)malloc(sizeof(float) * pflower.hdr.nchan);
     pflower.sub.dat_weights = (float *)malloc(sizeof(float) * pflower.hdr.nchan);
@@ -116,12 +98,6 @@ int main(int argc, char *argv[]) {
     pfupper.sub.dat_offsets = (float *)malloc(sizeof(float) * pfupper.hdr.nchan * pfupper.hdr.npol);
     pfupper.sub.dat_scales  = (float *)malloc(sizeof(float) * pfupper.hdr.nchan * pfupper.hdr.npol);
     pfupper.sub.data = (unsigned char *)malloc(pfupper.sub.bytes_per_subint);
-
-/*    pfo.sub.dat_freqs = (float *)malloc(sizeof(float) * pfo.hdr.nchan);
-    pfo.sub.dat_weights = (float *)malloc(sizeof(float) * pfo.hdr.nchan);
-    pfo.sub.dat_offsets = (float *)malloc(sizeof(float) * pfo.hdr.nchan * pfo.hdr.npol);
-    pfo.sub.dat_scales = (float *)malloc(sizeof(float) * pfo.hdr.nchan * pfo.hdr.npol);
-    pfo.sub.data = (unsigned char *)malloc(pfo.sub.bytes_per_subint);*/
 
     int firsttime=1;
     int loops=0;
@@ -218,7 +194,6 @@ int main(int argc, char *argv[]) {
           memcpy((pfo.sub.dat_scales)+(pfupper.hdr.nchan-upchanskip)*pfo.hdr.npol+(2*pfo.hdr.npol),pflower.sub.dat_scales+lowchanskip,sizeof(float)*(pflower.hdr.nchan-lowchanskip)*pflower.hdr.npol);
           //Copy the data
           int i=0;
-          //int k=0;
           for(i=0;i<pfo.hdr.nsblk;++i)
           {
             int j=0;
