@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <getopt.h>
 #include "psrfits.h"
 #include "mpi.h"
 
@@ -24,27 +25,63 @@ void reorder_data(unsigned char* outbuf, unsigned char *inbuf,
     }    
 }
 
+void usage() {
+    printf("usage:  mpimerge_psrfits [optios] basefilename\n"
+           "Options:\n"
+           "  -o name, --output=name   Output base filename (auto-generate)\n"
+           "  -i nn, --initial=nn      Starting input file number (1)\n"
+           "  -f nn, --final=nn        Ending input file number (auto)\n"
+           "\n");
+}
+
 
 int main(int argc, char *argv[])
 {
     int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
+    int fnum_start = 1, fnum_end = 0;
     int numprocs, numbands, myid;
     int *counts, *offsets;
     unsigned char *tmpbuf = NULL;
     struct psrfits pf;
     char hostname[100];
+    char output_base[256] = "\0";
     MPI_Status mpistat;
+    /* Cmd line */
+    static struct option long_opts[] = {
+        {"output",  1, NULL, 'o'},
+        {"initial", 1, NULL, 'i'},
+        {"final",   1, NULL, 'f'},
+        {0,0,0,0}
+    };
+    int opt, opti;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     numbands = numprocs - 1;
 
-    // Call usage() if we have no command line arguments
-    if (argc == 1) {
-        if (myid == 0) {
-            printf("usage:  mpimerge_psrfits basefilename\n\n");
+    // Process the command line
+    while ((opt=getopt_long(argc,argv,"o:i:f:",long_opts,&opti))!=-1) {
+        switch (opt) {
+        case 'o':
+            strncpy(output_base, optarg, 255);
+            output_base[255]='\0';
+            break;
+        case 'i':
+            fnum_start = atoi(optarg);
+            break;
+        case 'f':
+            fnum_end = atoi(optarg);
+            break;
+        default:
+            if (myid==0) usage();
+            MPI_Finalize();
+            exit(0);
+            break;
         }
+    }
+    if (optind==argc) { 
+        if (myid==0) usage();
         MPI_Finalize();
         exit(1);
     }
@@ -81,12 +118,12 @@ int main(int argc, char *argv[])
     // Basefilenames for the GPU nodes
     if (myid > 0) {
         sprintf(pf.basefilename, "/data/gpu/partial/%s/%s", 
-                hostname, argv[1]);
+                hostname, argv[optind]);
     }
 
     // Initialize some key parts of the PSRFITS structure
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
-    pf.filenum = 1;
+    pf.filenum = fnum_start;
     pf.filename[0] = '\0';
 
     if (myid == 1) {
@@ -123,7 +160,11 @@ int main(int argc, char *argv[])
         remove(tmpfilenm);
 
         // Now create the output PSTFITS file
-        strcpy(pf.basefilename, argv[1]);
+        if (output_base[0]=='\0') {
+            /* Set up default output filename */
+            strcpy(output_base, argv[optind]);
+        }
+        strcpy(pf.basefilename, output_base);
         pf.filenum = 0;
         pf.multifile = 1;
         pf.filename[0] = '\0';
@@ -167,8 +208,34 @@ int main(int argc, char *argv[])
     // Now loop over the rows (i.e. subints)...
     do {
         MPI_Barrier(MPI_COMM_WORLD);
+
         // Read the current subint from each of the "slave" nodes
-        if (myid > 0) status = psrfits_read_subint(&pf);
+        if (myid > 0) {
+            status = psrfits_read_subint(&pf);
+            if (status==108) {
+                printf("Proc %d:  Ignoring PSRFITS read error (%d).  Filling with zeros.\n", myid, status);
+                // Set the data and the weights to all zeros
+                for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
+                    pf.sub.dat_weights[ii] = 0.0;
+                for (ii = 0 ; ii < pf.sub.bytes_per_subint ; ii++) 
+                    pf.sub.data[ii] = 0;
+                // And the scales and offsets to nominal values
+                for (ii = 0 ; ii < pf.hdr.nchan * pf.hdr.npol ; ii++) {
+                    pf.sub.dat_offsets[ii] = 0.0;
+                    pf.sub.dat_scales[ii]  = 1.0;
+                }
+                // reset the status to 0 and allow going to next row
+                status = 0;
+                pf.rownum++;
+                pf.tot_rows++;
+                pf.N += pf.hdr.nsblk;
+                pf.T = pf.N * pf.hdr.dt;
+            }
+        }
+
+        /* If we've passed final file, exit */
+        if (fnum_end && pf.filenum > fnum_end) break;
+
         // Combine statuses of all nodes by summing....
         MPI_Allreduce(&status, &statsum, 1, 
                       MPI_INT, MPI_SUM, MPI_COMM_WORLD);
