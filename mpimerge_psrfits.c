@@ -31,6 +31,7 @@ void usage() {
            "  -o name, --output=name   Output base filename (auto-generate)\n"
            "  -i nn, --initial=nn      Starting input file number (1)\n"
            "  -f nn, --final=nn        Ending input file number (auto)\n"
+           "  -p nn, --badproc=nn      MPI Proc # to ignore FITSIO errors from (none)\n"
            "\n");
 }
 
@@ -38,8 +39,8 @@ void usage() {
 int main(int argc, char *argv[])
 {
     int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
-    int fnum_start = 1, fnum_end = 0;
-    int numprocs, numbands, myid;
+    int fnum_start = 1, fnum_end = 0, badproc = -1;
+    int numprocs, numbands, myid, baddata = 0;
     int *counts, *offsets;
     unsigned char *tmpbuf = NULL;
     struct psrfits pf;
@@ -51,6 +52,7 @@ int main(int argc, char *argv[])
         {"output",  1, NULL, 'o'},
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
+        {"badproc", 1, NULL, 'p'},
         {0,0,0,0}
     };
     int opt, opti;
@@ -61,7 +63,7 @@ int main(int argc, char *argv[])
     numbands = numprocs - 1;
 
     // Process the command line
-    while ((opt=getopt_long(argc,argv,"o:i:f:",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:i:f:p:",long_opts,&opti))!=-1) {
         switch (opt) {
         case 'o':
             strncpy(output_base, optarg, 255);
@@ -72,6 +74,9 @@ int main(int argc, char *argv[])
             break;
         case 'f':
             fnum_end = atoi(optarg);
+            break;
+        case 'p':
+            badproc = atoi(optarg);
             break;
         default:
             if (myid==0) usage();
@@ -211,8 +216,10 @@ int main(int argc, char *argv[])
 
         // Read the current subint from each of the "slave" nodes
         if (myid > 0) {
-            status = psrfits_read_subint(&pf);
-            if (status==108) {
+            if (!baddata) status = psrfits_read_subint(&pf);
+            // Ignore all read errors for a row and missing files if
+            // the process number os badproc
+            if (status==108 || (status==114 && myid==badproc && !baddata)) {
                 printf("Proc %d:  Ignoring PSRFITS read error (%d).  Filling with zeros.\n", myid, status);
                 // Set the data and the weights to all zeros
                 for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
@@ -225,14 +232,18 @@ int main(int argc, char *argv[])
                     pf.sub.dat_scales[ii]  = 1.0;
                 }
                 // reset the status to 0 and allow going to next row
+                if (status==114) {
+                    baddata = 1;
+                } else {
+                    pf.rownum++;
+                    pf.tot_rows++;
+                    pf.N += pf.hdr.nsblk;
+                    pf.T = pf.N * pf.hdr.dt;
+                }
                 status = 0;
-                pf.rownum++;
-                pf.tot_rows++;
-                pf.N += pf.hdr.nsblk;
-                pf.T = pf.N * pf.hdr.dt;
             }
         }
-
+        
         /* If we've passed final file, exit */
         if (fnum_end && pf.filenum > fnum_end) break;
 
