@@ -69,10 +69,10 @@ int main(int argc, char *argv[]) {
     rv=psrfits_open(&pflower);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
     pfo=pflower;
-    printf("filenum=%d\n",pflower.filenum);
-    printf("filenum=%d\n",pfo.filenum);
-    sprintf(pfo.basefilename,outfilename);
-    printf("pfo.basefilename=%s\n",pfo.basefilename);
+    if(!cmd->outputbasenameP)
+      sprintf(pfo.basefilename,outfilename);
+    else
+      sprintf(pfo.basefilename,cmd->outputbasename);
     pfo.filenum = 0;
     pfo.filename[0] = '\0';
     pfo.rownum = 1;
@@ -138,19 +138,19 @@ int main(int argc, char *argv[]) {
         }
         else
           upchanskip=lowchanskip=chanskip/2;
-        printf("upperfreqoflower=%f\n",upperfreqoflower);
-        printf("lowerfreqofupper=%f\n",lowerfreqofupper);
-        printf("nextfromlower=%f\n",nextfromlower);
-        printf("numchandiff=%f\n",numchandiff);
-        printf("upchanskip=%d\n",upchanskip);
-        printf("lowchanskip=%d\n",lowchanskip);
-        printf("nbits=%d\n",pfo.hdr.nbits);
+//        printf("upperfreqoflower=%f\n",upperfreqoflower);
+//        printf("lowerfreqofupper=%f\n",lowerfreqofupper);
+//        printf("nextfromlower=%f\n",nextfromlower);
+//        printf("numchandiff=%f\n",numchandiff);
+//        printf("upchanskip=%d\n",upchanskip);
+//        printf("lowchanskip=%d\n",lowchanskip);
+//        printf("nbits=%d\n",pfo.hdr.nbits);
         //Using the number of skipped channels, find new values for nchan,BW, and fctr
         pfo.hdr.nchan=pfupper.hdr.nchan+pflower.hdr.nchan-chanskip+2;
         pfo.hdr.BW=(double)pfo.hdr.nchan*fabs(pflower.hdr.df);
         pfo.hdr.fctr=(pflower.hdr.fctr-(double)(pflower.hdr.nchan/2)*fabs(pflower.hdr.df))+pfo.hdr.BW/2.0;
         pfo.sub.bytes_per_subint=pfo.hdr.nchan*pfo.hdr.nsblk*pfo.hdr.nbits/8*pfo.hdr.npol;
-        printf("pfo.sub.bytes_per_subint=%d\n",pfo.sub.bytes_per_subint);
+//        printf("pfo.sub.bytes_per_subint=%d\n",pfo.sub.bytes_per_subint);
         pfo.sub.dat_freqs = (float *)malloc(sizeof(float) * pfo.hdr.nchan);
         pfo.sub.dat_weights = (float *)malloc(sizeof(float) * pfo.hdr.nchan);
         pfo.sub.dat_offsets = (float *)malloc(sizeof(float) * pfo.hdr.nchan * pfo.hdr.npol);

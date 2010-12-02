@@ -22,6 +22,10 @@ char *Program;
 /*@-null*/
 
 static Cmdline cmd = {
+  /***** -o: Basename for the output files */
+  /* outputbasenameP = */ 0,
+  /* outputbasename = */ (char*)0,
+  /* outputbasenameC = */ 0,
   /***** uninterpreted rest of command line */
   /* argc = */ 0,
   /* argv = */ (char**)0,
@@ -721,13 +725,15 @@ catArgv(int argc, char **argv)
 void
 usage(void)
 {
-  fprintf(stderr,"%s","   [--] infile ...\n");
+  fprintf(stderr,"%s","   [-o outputbasename] [--] infile ...\n");
   fprintf(stderr,"%s","      \n");
   fprintf(stderr,"%s","      Combine two sidebands of PSRFITS search-mode data.\n");
   fprintf(stderr,"%s","      \n");
+  fprintf(stderr,"%s","        -o: Basename for the output files\n");
+  fprintf(stderr,"%s","            1 char* value\n");
   fprintf(stderr,"%s","    infile: Input file name(s) of the PSRFITs datafiles\n");
   fprintf(stderr,"%s","            1...2000 values\n");
-  fprintf(stderr,"%s","  version: 24Sep10\n");
+  fprintf(stderr,"%s","  version: 02Dec10\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -742,6 +748,14 @@ parseCmdline(int argc, char **argv)
   for(i=1, cmd.argc=1; i<argc; i++) {
     if( 0==strcmp("--", argv[i]) ) {
       while( ++i<argc ) argv[cmd.argc++] = argv[i];
+      continue;
+    }
+
+    if( 0==strcmp("-o", argv[i]) ) {
+      int keep = i;
+      cmd.outputbasenameP = 1;
+      i = getStringOpt(argc, argv, i, &cmd.outputbasename, 1);
+      cmd.outputbasenameC = i-keep;
       continue;
     }
 

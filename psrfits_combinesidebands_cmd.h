@@ -9,6 +9,10 @@
 *****/
 
 typedef struct s_Cmdline {
+  /***** -o: Basename for the output files */
+  char outputbasenameP;
+  char* outputbasename;
+  int outputbasenameC;
   /***** uninterpreted command line parameters */
   int argc;
   /*@null*/char **argv;

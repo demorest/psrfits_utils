@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_combinesidebands" 1 "24Sep10" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_combinesidebands" 1 "02Dec10" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -24,11 +24,16 @@ Combine two sidebands of PSRFITS search-mode data.
 .\" cligPart SYNOPSIS
 .SH SYNOPSIS
 .B psrfits_combinesidebands
+[-o outputbasename]
 infile ...
 .\" cligPart SYNOPSIS end
 
 .\" cligPart OPTIONS
 .SH OPTIONS
+.IP -o
+Basename for the output files,
+.br
+1 String value
 .IP infile
 Input file name(s) of the PSRFITs datafiles.
 .\" cligPart OPTIONS end
