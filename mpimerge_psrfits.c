@@ -31,7 +31,6 @@ void usage() {
            "  -o name, --output=name   Output base filename (auto-generate)\n"
            "  -i nn, --initial=nn      Starting input file number (1)\n"
            "  -f nn, --final=nn        Ending input file number (auto)\n"
-           "  -p nn, --badproc=nn      MPI Proc # to ignore FITSIO errors from (none)\n"
            "\n");
 }
 
@@ -39,11 +38,15 @@ void usage() {
 int main(int argc, char *argv[])
 {
     int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
-    int fnum_start = 1, fnum_end = 0, badproc = -1;
-    int numprocs, numbands, myid, baddata = 0;
+    int fnum_start = 1, fnum_end = 0;
+    int numprocs, numbands, myid, baddata = 0, droppedrow = 0;
     int *counts, *offsets;
     unsigned char *tmpbuf = NULL;
     struct psrfits pf;
+    struct {
+        double value;
+        int index;
+    } offs_in, offs_out;
     char hostname[100];
     char output_base[256] = "\0";
     MPI_Status mpistat;
@@ -52,7 +55,6 @@ int main(int argc, char *argv[])
         {"output",  1, NULL, 'o'},
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
-        {"badproc", 1, NULL, 'p'},
         {0,0,0,0}
     };
     int opt, opti;
@@ -63,7 +65,7 @@ int main(int argc, char *argv[])
     numbands = numprocs - 1;
 
     // Process the command line
-    while ((opt=getopt_long(argc,argv,"o:i:f:p:",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:i:f:",long_opts,&opti))!=-1) {
         switch (opt) {
         case 'o':
             strncpy(output_base, optarg, 255);
@@ -74,9 +76,6 @@ int main(int argc, char *argv[])
             break;
         case 'f':
             fnum_end = atoi(optarg);
-            break;
-        case 'p':
-            badproc = atoi(optarg);
             break;
         default:
             if (myid==0) usage();
@@ -215,12 +214,33 @@ int main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
 
         // Read the current subint from each of the "slave" nodes
+        if (myid > 0 && !baddata) {
+            status = psrfits_read_subint(&pf);
+            if (status) pf.sub.offs = 9e9;  //  High value so it won't be min
+        } else {  // Root process
+            pf.sub.offs = 9e9;  //  High value so it won't be min
+        }
+        
+        // Find the minimum value of OFFS_SUB to see if we dropped a row
+        offs_in.value = pf.sub.offs;
+        offs_in.index = myid;
+        MPI_Allreduce(&offs_in, &offs_out, 1, MPI_DOUBLE_INT, 
+                      MPI_MINLOC, MPI_COMM_WORLD);
+        if (myid==0) {
+            printf("min = %.12f  index = %d\n", offs_out.value, offs_out.index);
+        }
+        if ((myid > 0) && (!status) && (pf.sub.offs > offs_out.value)) {
+            printf("Proc %d, row %d:  Dropped a row.  Filling with zeros.\n", 
+                   myid, pf.rownum);
+            droppedrow = 1;
+        }
+
         if (myid > 0) {
-            if (!baddata) status = psrfits_read_subint(&pf);
-            // Ignore all read errors for a row and missing files if
-            // the process number os badproc
-            if (status==108 || (status==114 && myid==badproc && !baddata)) {
-                printf("Proc %d:  Ignoring PSRFITS read error (%d).  Filling with zeros.\n", myid, status);
+            // Ignore all read errors for a row (108) and missing files (114)
+            if (droppedrow || 
+                status==108 || 
+                ((myid > 0) && (status==114) && (!baddata))) {
+                if (status) printf("Proc %d, row %d:  Ignoring CFITSIO error %d.  Filling with zeros.\n", myid, pf.rownum, status);
                 // Set the data and the weights to all zeros
                 for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
                     pf.sub.dat_weights[ii] = 0.0;
@@ -234,17 +254,25 @@ int main(int argc, char *argv[])
                 // reset the status to 0 and allow going to next row
                 if (status==114) {
                     baddata = 1;
-                } else {
+                }
+                if (status==108) { // Try reading the next row...
                     pf.rownum++;
                     pf.tot_rows++;
                     pf.N += pf.hdr.nsblk;
                     pf.T = pf.N * pf.hdr.dt;
                 }
+                if (droppedrow) {  // We want to read the current row again...
+                    pf.rownum--;
+                    pf.tot_rows--;
+                    pf.N -= pf.hdr.nsblk;
+                    pf.T = pf.N * pf.hdr.dt;
+                    droppedrow = 0;  // reset
+                }
                 status = 0;
             }
         }
         
-        /* If we've passed final file, exit */
+        // If we've passed final file, exit
         if (fnum_end && pf.filenum > fnum_end) break;
 
         // Combine statuses of all nodes by summing....
@@ -252,7 +280,7 @@ int main(int argc, char *argv[])
                       MPI_INT, MPI_SUM, MPI_COMM_WORLD);
         if (statsum) break;
             
-        if (myid == 1) { // Send all of the non-band-specific parts to master
+        if (myid == offs_out.index) { // Send all of the non-band-specific parts to master
             MPI_Send(&pf.sub.tsubint, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.offs, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.lst, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
