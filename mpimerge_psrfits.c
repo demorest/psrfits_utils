@@ -6,6 +6,7 @@
 #include "mpi.h"
 
 #define HDRLEN 14400
+#define FLAG   9e9
 
 void reorder_data(unsigned char* outbuf, unsigned char *inbuf, 
                   int nband, int nspec, int npol, int nchan)
@@ -214,11 +215,18 @@ int main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
 
         // Read the current subint from each of the "slave" nodes
-        if (myid > 0 && !baddata) {
+        if ((myid > 0) && (!baddata)) {
             status = psrfits_read_subint(&pf);
-            if (status) pf.sub.offs = 9e9;  //  High value so it won't be min
+            if (status) {
+                pf.sub.offs = FLAG;  //  High value so it won't be min
+                if (pf.rownum > pf.rows_per_file) {
+                    // Shouldn't be here unless opening of new file failed...
+                    printf("Proc %d:  Can't open next file.  Setting status=114.\n", myid);
+                    status = 114;
+                }
+            }
         } else {  // Root process
-            pf.sub.offs = 9e9;  //  High value so it won't be min
+            pf.sub.offs = FLAG;  //  High value so it won't be min
         }
         
         // Find the minimum value of OFFS_SUB to see if we dropped a row
@@ -226,10 +234,11 @@ int main(int argc, char *argv[])
         offs_in.index = myid;
         MPI_Allreduce(&offs_in, &offs_out, 1, MPI_DOUBLE_INT, 
                       MPI_MINLOC, MPI_COMM_WORLD);
-        if (myid==0) {
-            printf("min = %.12f  index = %d\n", offs_out.value, offs_out.index);
-        }
-        if ((myid > 0) && (!status) && (pf.sub.offs > offs_out.value)) {
+        // If all procs are returning the FLAG value, break.
+        if (offs_out.value==FLAG) break;
+        // Identify dropped rows
+        if ((myid > 0) && (!status) && (!baddata) && 
+            (pf.sub.offs > (offs_out.value + 0.1 * pf.sub.tsubint))) {
             printf("Proc %d, row %d:  Dropped a row.  Filling with zeros.\n", 
                    myid, pf.rownum);
             droppedrow = 1;
@@ -240,6 +249,7 @@ int main(int argc, char *argv[])
             if (droppedrow || 
                 status==108 || 
                 ((myid > 0) && (status==114) && (!baddata))) {
+
                 if (status) printf("Proc %d, row %d:  Ignoring CFITSIO error %d.  Filling with zeros.\n", myid, pf.rownum, status);
                 // Set the data and the weights to all zeros
                 for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
@@ -294,18 +304,18 @@ int main(int argc, char *argv[])
             MPI_Send(&pf.sub.tel_az, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.tel_zen, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         } else if (myid == 0) { // Receive all of the non-data parts
-            MPI_Recv(&pf.sub.tsubint, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.offs, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.lst, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.ra, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.dec, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.glon, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.glat, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.feed_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.pos_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.par_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.tel_az, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.tel_zen, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tsubint, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.offs, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.lst, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.ra, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.dec, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.glon, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.glat, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.feed_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.pos_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.par_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tel_az, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tel_zen, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
         }
 
         // Now gather the vector quantities...
