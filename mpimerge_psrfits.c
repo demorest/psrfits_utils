@@ -245,10 +245,11 @@ int main(int argc, char *argv[])
         }
 
         if (myid > 0) {
-            // Ignore all read errors for a row (108) and missing files (114)
+            // Ignore errors for moving past EOF (107), read errors (108) 
+            // and missing files (114)
             if (droppedrow || 
                 status==108 || 
-                ((myid > 0) && (status==114) && (!baddata))) {
+                ((myid > 0) && (status==114 || status==107) && (!baddata))) {
 
                 if (status) printf("Proc %d, row %d:  Ignoring CFITSIO error %d.  Filling with zeros.\n", myid, pf.rownum, status);
                 // Set the data and the weights to all zeros
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
                     pf.sub.dat_scales[ii]  = 1.0;
                 }
                 // reset the status to 0 and allow going to next row
-                if (status==114) {
+                if (status==114 || status==107) {
                     baddata = 1;
                 }
                 if (status==108) { // Try reading the next row...
