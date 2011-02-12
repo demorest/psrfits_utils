@@ -1,10 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <getopt.h>
 #include "psrfits.h"
 #include "mpi.h"
 
 #define HDRLEN 14400
+#define FLAG   9e9
 
 void reorder_data(unsigned char* outbuf, unsigned char *inbuf, 
                   int nband, int nspec, int npol, int nchan)
@@ -24,27 +26,67 @@ void reorder_data(unsigned char* outbuf, unsigned char *inbuf,
     }    
 }
 
+void usage() {
+    printf("usage:  mpimerge_psrfits [optios] basefilename\n"
+           "Options:\n"
+           "  -o name, --output=name   Output base filename (auto-generate)\n"
+           "  -i nn, --initial=nn      Starting input file number (1)\n"
+           "  -f nn, --final=nn        Ending input file number (auto)\n"
+           "\n");
+}
+
 
 int main(int argc, char *argv[])
 {
     int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
-    int numprocs, numbands, myid;
+    int fnum_start = 1, fnum_end = 0;
+    int numprocs, numbands, myid, baddata = 0, droppedrow = 0;
     int *counts, *offsets;
     unsigned char *tmpbuf = NULL;
     struct psrfits pf;
+    struct {
+        double value;
+        int index;
+    } offs_in, offs_out;
     char hostname[100];
+    char output_base[256] = "\0";
     MPI_Status mpistat;
+    /* Cmd line */
+    static struct option long_opts[] = {
+        {"output",  1, NULL, 'o'},
+        {"initial", 1, NULL, 'i'},
+        {"final",   1, NULL, 'f'},
+        {0,0,0,0}
+    };
+    int opt, opti;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     numbands = numprocs - 1;
 
-    // Call usage() if we have no command line arguments
-    if (argc == 1) {
-        if (myid == 0) {
-            printf("usage:  mpimerge_psrfits basefilename\n\n");
+    // Process the command line
+    while ((opt=getopt_long(argc,argv,"o:i:f:",long_opts,&opti))!=-1) {
+        switch (opt) {
+        case 'o':
+            strncpy(output_base, optarg, 255);
+            output_base[255]='\0';
+            break;
+        case 'i':
+            fnum_start = atoi(optarg);
+            break;
+        case 'f':
+            fnum_end = atoi(optarg);
+            break;
+        default:
+            if (myid==0) usage();
+            MPI_Finalize();
+            exit(0);
+            break;
         }
+    }
+    if (optind==argc) { 
+        if (myid==0) usage();
         MPI_Finalize();
         exit(1);
     }
@@ -81,12 +123,12 @@ int main(int argc, char *argv[])
     // Basefilenames for the GPU nodes
     if (myid > 0) {
         sprintf(pf.basefilename, "/data/gpu/partial/%s/%s", 
-                hostname, argv[1]);
+                hostname, argv[optind]);
     }
 
     // Initialize some key parts of the PSRFITS structure
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
-    pf.filenum = 1;
+    pf.filenum = fnum_start;
     pf.filename[0] = '\0';
 
     if (myid == 1) {
@@ -123,7 +165,11 @@ int main(int argc, char *argv[])
         remove(tmpfilenm);
 
         // Now create the output PSTFITS file
-        strcpy(pf.basefilename, argv[1]);
+        if (output_base[0]=='\0') {
+            /* Set up default output filename */
+            strcpy(output_base, argv[optind]);
+        }
+        strcpy(pf.basefilename, output_base);
         pf.filenum = 0;
         pf.multifile = 1;
         pf.filename[0] = '\0';
@@ -167,14 +213,84 @@ int main(int argc, char *argv[])
     // Now loop over the rows (i.e. subints)...
     do {
         MPI_Barrier(MPI_COMM_WORLD);
+
         // Read the current subint from each of the "slave" nodes
-        if (myid > 0) status = psrfits_read_subint(&pf);
+        if ((myid > 0) && (!baddata)) {
+            status = psrfits_read_subint(&pf);
+            if (status) {
+                pf.sub.offs = FLAG;  //  High value so it won't be min
+                if (pf.rownum > pf.rows_per_file) {
+                    // Shouldn't be here unless opening of new file failed...
+                    printf("Proc %d:  Can't open next file.  Setting status=114.\n", myid);
+                    status = 114;
+                }
+            }
+        } else {  // Root process
+            pf.sub.offs = FLAG;  //  High value so it won't be min
+        }
+        
+        // Find the minimum value of OFFS_SUB to see if we dropped a row
+        offs_in.value = pf.sub.offs;
+        offs_in.index = myid;
+        MPI_Allreduce(&offs_in, &offs_out, 1, MPI_DOUBLE_INT, 
+                      MPI_MINLOC, MPI_COMM_WORLD);
+        // If all procs are returning the FLAG value, break.
+        if (offs_out.value==FLAG) break;
+        // Identify dropped rows
+        if ((myid > 0) && (!status) && (!baddata) && 
+            (pf.sub.offs > (offs_out.value + 0.1 * pf.sub.tsubint))) {
+            printf("Proc %d, row %d:  Dropped a row.  Filling with zeros.\n", 
+                   myid, pf.rownum);
+            droppedrow = 1;
+        }
+
+        if (myid > 0) {
+            // Ignore all read errors for a row (108) and missing files (114)
+            if (droppedrow || 
+                status==108 || 
+                ((myid > 0) && (status==114) && (!baddata))) {
+
+                if (status) printf("Proc %d, row %d:  Ignoring CFITSIO error %d.  Filling with zeros.\n", myid, pf.rownum, status);
+                // Set the data and the weights to all zeros
+                for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
+                    pf.sub.dat_weights[ii] = 0.0;
+                for (ii = 0 ; ii < pf.sub.bytes_per_subint ; ii++) 
+                    pf.sub.data[ii] = 0;
+                // And the scales and offsets to nominal values
+                for (ii = 0 ; ii < pf.hdr.nchan * pf.hdr.npol ; ii++) {
+                    pf.sub.dat_offsets[ii] = 0.0;
+                    pf.sub.dat_scales[ii]  = 1.0;
+                }
+                // reset the status to 0 and allow going to next row
+                if (status==114) {
+                    baddata = 1;
+                }
+                if (status==108) { // Try reading the next row...
+                    pf.rownum++;
+                    pf.tot_rows++;
+                    pf.N += pf.hdr.nsblk;
+                    pf.T = pf.N * pf.hdr.dt;
+                }
+                if (droppedrow) {  // We want to read the current row again...
+                    pf.rownum--;
+                    pf.tot_rows--;
+                    pf.N -= pf.hdr.nsblk;
+                    pf.T = pf.N * pf.hdr.dt;
+                    droppedrow = 0;  // reset
+                }
+                status = 0;
+            }
+        }
+        
+        // If we've passed final file, exit
+        if (fnum_end && pf.filenum > fnum_end) break;
+
         // Combine statuses of all nodes by summing....
         MPI_Allreduce(&status, &statsum, 1, 
                       MPI_INT, MPI_SUM, MPI_COMM_WORLD);
         if (statsum) break;
             
-        if (myid == 1) { // Send all of the non-band-specific parts to master
+        if (myid == offs_out.index) { // Send all of the non-band-specific parts to master
             MPI_Send(&pf.sub.tsubint, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.offs, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.lst, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
@@ -188,18 +304,18 @@ int main(int argc, char *argv[])
             MPI_Send(&pf.sub.tel_az, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&pf.sub.tel_zen, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         } else if (myid == 0) { // Receive all of the non-data parts
-            MPI_Recv(&pf.sub.tsubint, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.offs, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.lst, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.ra, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.dec, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.glon, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.glat, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.feed_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.pos_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.par_ang, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.tel_az, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
-            MPI_Recv(&pf.sub.tel_zen, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tsubint, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.offs, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.lst, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.ra, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.dec, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.glon, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.glat, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.feed_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.pos_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.par_ang, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tel_az, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
+            MPI_Recv(&pf.sub.tel_zen, 1, MPI_DOUBLE, offs_out.index, 0, MPI_COMM_WORLD, &mpistat);
         }
 
         // Now gather the vector quantities...

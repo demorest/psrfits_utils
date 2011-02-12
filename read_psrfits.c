@@ -170,6 +170,8 @@ int psrfits_read_subint(struct psrfits *pf) {
             NULL, status);
     fits_read_col(pf->fptr, TDOUBLE, 2, row, 1, 1, NULL, &(sub->offs), 
             NULL, status);
+    // Hack to fix wrapping in coherent data
+    if (sub->offs < 0.0) sub->offs += (4294967296L * hdr->dt);
     fits_read_col(pf->fptr, TDOUBLE, 3, row, 1, 1, NULL, &(sub->lst), 
             NULL, status);
     fits_read_col(pf->fptr, TDOUBLE, 4, row, 1, 1, NULL, &(sub->ra), 
