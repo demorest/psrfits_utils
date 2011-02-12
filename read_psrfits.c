@@ -11,7 +11,7 @@
  * the first file in the set OR that filename already contains
  * the correct file name.
  */
-int psrfits_open(struct psrfits *pf) {
+int psrfits_open(struct psrfits *pf,int iomode) {
 
     int itmp;
     double dtmp;
@@ -23,13 +23,12 @@ int psrfits_open(struct psrfits *pf) {
     int *status = &(pf->status);
 
     sprintf(ctmp, "%s_%04d.fits", pf->basefilename, pf->filenum-1);
-    if (pf->filename[0]=='\0' || 
-        ((pf->filenum > 1) && (!strcmp(ctmp, pf->filename)==0)))
-        // The 2nd test checks to see if we are creating filenames ourselves
+    if (pf->filename[0]=='\0' || ((pf->filenum > 1) && (strcmp(ctmp, pf->filename)==0)))
+    {   // The 2nd test checks to see if we are creating filenames ourselves
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+    }
 
-    fits_open_file(&(pf->fptr), pf->filename, READONLY, status);
-    pf->mode = 'r';
+    fits_open_file(&(pf->fptr), pf->filename, iomode, status);
 
     // If file no exist, exit now
     if (*status) {
@@ -129,7 +128,8 @@ int psrfits_open(struct psrfits *pf) {
 
     // Init counters
     pf->rownum = 1;
-    fits_read_key(pf->fptr, TINT, "NAXIS2", &(pf->rows_per_file), NULL, status);
+    if(iomode==READONLY)
+      fits_read_key(pf->fptr, TINT, "NAXIS2", &(pf->rows_per_file), NULL, status);
 
     return *status;
 }
@@ -151,7 +151,7 @@ int psrfits_read_subint(struct psrfits *pf) {
         printf("Closing file '%s'\n", pf->filename);
         fits_close_file(pf->fptr, status);
         pf->filenum++;
-        psrfits_open(pf);
+        psrfits_open(pf,READONLY);
         if (*status==104) {
             printf("Finished with all input files.\n");
             pf->filenum--;
@@ -237,7 +237,7 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer) {
         printf("Closing file '%s'\n", pf->filename);
         fits_close_file(pf->fptr, &(pf->status));
         pf->filenum++;
-        psrfits_open(pf);
+        psrfits_open(pf,READONLY);
         if (pf->status==104) {
             printf("Finished with all input files.\n");
             pf->filenum--;

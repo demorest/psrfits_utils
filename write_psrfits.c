@@ -213,6 +213,12 @@ int psrfits_create(struct psrfits *pf) {
         }
     }
 
+//    if(!strcmp(hdr->backend,"pdev"))
+//    {
+//      fits_movnam_hdu(pf->fptr, BINARY_TBL, "AOGEN", 0, status);
+//      fits_update_key(pf->fptr, TINT, "BEAM", &(hdr->beam), NULL, status);
+//    }    
+
     // Go to the SUBINT HDU
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
@@ -328,6 +334,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         psrfits_create(pf);
     }
 
+
     row = pf->rownum;
     fits_write_col(pf->fptr, TDOUBLE, 1, row, 1, 1, &(sub->tsubint), status);
     fits_write_col(pf->fptr, TDOUBLE, 2, row, 1, 1, &(sub->offs), status);
@@ -389,7 +396,6 @@ int psrfits_write_subint(struct psrfits *pf) {
         }
 
     }
-
     return *status;
 }
 

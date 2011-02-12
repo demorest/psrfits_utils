@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
     pf.hdr.chan_dm = 0.0; // What if folding data that has been partially de-dispersed?
     pf.filename[0]='\0';
-    int rv = psrfits_open(&pf);
+    int rv = psrfits_open(&pf,READONLY);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     /* Check any constraints */
