@@ -79,7 +79,7 @@ int psrfits_create(struct psrfits *pf) {
     if (mode==fold && pf->multifile!=1)
         sprintf(pf->filename, "%s.fits", pf->basefilename);
     else
-        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+        sprintf(pf->filename, "%s%c%0*d.fits", pf->basefilename, pf->fnamesepchar, pf->fnamedigits, pf->filenum);
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)

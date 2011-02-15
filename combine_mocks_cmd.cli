@@ -1,6 +1,6 @@
-Name psrfits_combinesidebands
+Name combine_mocks
 
-Usage "\nCombine two sidebands of PSRFITS search-mode data.\n"
+Usage "\nCombine two frequency bands of Mock spectrometer data.\n"
 
 Version [exec date +%d%b%y]
 

@@ -102,6 +102,9 @@ struct foldinfo {
 struct psrfits {
     char basefilename[200]; // The base filename from which to build the true filename
     char filename[200];     // Filename of the current PSRFITs file
+    int fnamedigits;        // Number of digits in pointing number in filename
+    char fnamesepchar;      // Separation character between basename in 
+                            // pointing number in filename
     long long N;            // Current number of spectra written
     double T;               // Current duration of the observation written
     int filenum;            // The current number of the file in the scan (1-offset)

@@ -22,10 +22,10 @@ int psrfits_open(struct psrfits *pf,int iomode) {
     struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
-    sprintf(ctmp, "%s_%04d.fits", pf->basefilename, pf->filenum-1);
+    sprintf(ctmp, "%s%c%0*d.fits", pf->basefilename, pf->fnamesepchar, pf->fnamedigits, pf->filenum-1);
     if (pf->filename[0]=='\0' || ((pf->filenum > 1) && (strcmp(ctmp, pf->filename)==0)))
     {   // The 2nd test checks to see if we are creating filenames ourselves
-        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+        sprintf(pf->filename, "%s%c%0*d.fits", pf->basefilename, pf->fnamesepchar, pf->fnamedigits, pf->filenum);
     }
 
     fits_open_file(&(pf->fptr), pf->filename, iomode, status);
@@ -151,6 +151,7 @@ int psrfits_read_subint(struct psrfits *pf) {
         printf("Closing file '%s'\n", pf->filename);
         fits_close_file(pf->fptr, status);
         pf->filenum++;
+printf("filenum=%d\n",pf->filenum);
         psrfits_open(pf,READONLY);
         if (*status==104) {
             printf("Finished with all input files.\n");
