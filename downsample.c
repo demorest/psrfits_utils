@@ -23,7 +23,7 @@ void get_stokes_I(struct psrfits *pf)
         for (ii = 0 ; ii < hdr->nsblk ; ii++) {
             data = pf->sub.data + ii * inbytes;
             bbptr = data + outbytes;
-            for (jj = 0 ; jj < hdr->nchan ; jj++, data++) {
+            for (jj = 0 ; jj < hdr->nchan ; jj++, data++, bbptr++) {
                 itmp = (*data + *bbptr) >> 1; // Average AA and BB polns
                 *data = itmp;
             }
