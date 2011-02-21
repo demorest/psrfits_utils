@@ -120,12 +120,14 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
     fits_read_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
 
-    if (mode==SEARCH_MODE) 
-        sub->bytes_per_subint = 
-            (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8;
-    else if (mode==FOLD_MODE) 
+    if (mode==SEARCH_MODE) {
+        long long lltmp;  // Prevents a possible overflow in numerator below
+        lltmp = (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8L;
+        sub->bytes_per_subint = (int) lltmp;
+    } else if (mode==FOLD_MODE) {
         sub->bytes_per_subint = 
             (hdr->nbin * hdr->nchan * hdr->npol); // XXX data type??
+    }
 
     // Init counters
     pf->rownum = 1;

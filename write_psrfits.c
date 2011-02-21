@@ -27,6 +27,7 @@ int psrfits_obs_mode(const char *obs_mode) {
 
 int psrfits_create(struct psrfits *pf) {
     int itmp, *status;
+    long long lltmp;
     long double ldtmp;
     double dtmp;
     char ctmp[40];
@@ -274,11 +275,11 @@ int psrfits_create(struct psrfits *pf) {
         fits_modify_vector_len(pf->fptr, 15, itmp, status); // DAT_OFFS
         fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
         
-        if (mode==search)
-            itmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8;
-        else if (mode==fold)
-            itmp = (hdr->nbin * out_nchan * out_npol);
-        fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
+        if (mode==search) {
+            lltmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8L;
+        } else if (mode==fold)
+            lltmp = (hdr->nbin * out_nchan * out_npol);
+        fits_modify_vector_len(pf->fptr, 17, lltmp, status); // DATA
         // Update the TDIM field for the data column
         if (mode==search)
             sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, out_nsblk);
