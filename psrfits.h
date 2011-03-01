@@ -10,7 +10,6 @@
 // The following is the template file to use to create a PSRFITS file.
 #define PSRFITS_SEARCH_TEMPLATE "guppi_PSRFITS_v3.4_search_template.txt"
 #define PSRFITS_FOLD_TEMPLATE "guppi_PSRFITS_v3.4_fold_template.txt"
-#define MOCK_SEARCH_TEMPLATE "mock_PSRFITS_v3.4_search_template.txt"
 
 struct hdrinfo {
     char obs_mode[8];       // Observing mode (SEARCH, PSR, CAL)
@@ -65,7 +64,6 @@ struct hdrinfo {
     int onlyI;              // 1 if the software will only record Stokes I
     int fd_hand;            // Receiver "handedness" or X/Y swap (+/-1)
     int be_phase;           // Backend poln cross-term phase convention (+/-1)
-    int beam;
 };
 
 struct subint {
@@ -102,9 +100,6 @@ struct foldinfo {
 struct psrfits {
     char basefilename[200]; // The base filename from which to build the true filename
     char filename[200];     // Filename of the current PSRFITs file
-    int fnamedigits;        // Number of digits in pointing number in filename
-    char fnamesepchar;      // Separation character between basename in 
-                            // pointing number in filename
     long long N;            // Current number of spectra written
     double T;               // Current duration of the observation written
     int filenum;            // The current number of the file in the scan (1-offset)
@@ -134,7 +129,7 @@ int psrfits_remove_polycos(struct psrfits *pf);
 int psrfits_remove_ephem(struct psrfits *pf);
 
 // In read_psrfits.c
-int psrfits_open(struct psrfits *pf,int iotype);
+int psrfits_open(struct psrfits *pf);
 int psrfits_read_subint(struct psrfits *pf);
 int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer);
 

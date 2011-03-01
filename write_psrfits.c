@@ -27,6 +27,7 @@ int psrfits_obs_mode(const char *obs_mode) {
 
 int psrfits_create(struct psrfits *pf) {
     int itmp, *status;
+    long long lltmp;
     long double ldtmp;
     double dtmp;
     char ctmp[40];
@@ -79,7 +80,7 @@ int psrfits_create(struct psrfits *pf) {
     if (mode==fold && pf->multifile!=1)
         sprintf(pf->filename, "%s.fits", pf->basefilename);
     else
-        sprintf(pf->filename, "%s%c%0*d.fits", pf->basefilename, pf->fnamesepchar, pf->fnamedigits, pf->filenum);
+        sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
 
     // Create basic FITS file from our template
     // Fold mode template has additional tables (polyco, ephem)
@@ -213,12 +214,6 @@ int psrfits_create(struct psrfits *pf) {
         }
     }
 
-//    if(!strcmp(hdr->backend,"pdev"))
-//    {
-//      fits_movnam_hdu(pf->fptr, BINARY_TBL, "AOGEN", 0, status);
-//      fits_update_key(pf->fptr, TINT, "BEAM", &(hdr->beam), NULL, status);
-//    }    
-
     // Go to the SUBINT HDU
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
@@ -280,11 +275,11 @@ int psrfits_create(struct psrfits *pf) {
         fits_modify_vector_len(pf->fptr, 15, itmp, status); // DAT_OFFS
         fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
         
-        if (mode==search)
-            itmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8;
-        else if (mode==fold)
-            itmp = (hdr->nbin * out_nchan * out_npol);
-        fits_modify_vector_len(pf->fptr, 17, itmp, status); // DATA
+        if (mode==search) {
+            lltmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8L;
+        } else if (mode==fold)
+            lltmp = (hdr->nbin * out_nchan * out_npol);
+        fits_modify_vector_len(pf->fptr, 17, lltmp, status); // DATA
         // Update the TDIM field for the data column
         if (mode==search)
             sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, out_nsblk);
@@ -333,7 +328,6 @@ int psrfits_write_subint(struct psrfits *pf) {
         }
         psrfits_create(pf);
     }
-
 
     row = pf->rownum;
     fits_write_col(pf->fptr, TDOUBLE, 1, row, 1, 1, &(sub->tsubint), status);
@@ -396,6 +390,7 @@ int psrfits_write_subint(struct psrfits *pf) {
         }
 
     }
+
     return *status;
 }
 

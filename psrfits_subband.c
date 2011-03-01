@@ -114,7 +114,6 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
 
         // Read the current row of data
         psrfits_read_subint(pfi);
-        printf("sub.offs=%f,last_offs=%f\n",pfi->sub.offs,last_offs);
         diff_offs = pfi->sub.offs - last_offs;
 
         if (!TEST_CLOSE(diff_offs, row_duration) || pfi->status) {
@@ -128,7 +127,7 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
 #if 1
                 printf("At row %d, found %d dropped rows.\n", 
                        pfi->rownum, num_pad_blocks);
-                printf("2:Adding a missing row (#%d) of padding to the subbands.\n", 
+                printf("Adding a missing row (#%d) of padding to the subbands.\n", 
                        pfi->tot_rows);
 #endif        
                 pfi->N -= pfi->hdr.nsblk;  // Will be re-added below for padding
@@ -230,10 +229,10 @@ void init_subbanding(int nsub, double dm,
                                           * pfi->hdr.nchan * pfi->hdr.npol);
     // This is temporary...
     pfi->sub.data = (unsigned char *)malloc(pfi->sub.bytes_per_subint);
-
         
     // Read the first row of data
     psrfits_read_subint(pfi);
+
     if (si->userwgts) {
         free(pfi->sub.dat_weights);
         pfi->sub.dat_weights = si->userwgts;
@@ -251,6 +250,7 @@ void init_subbanding(int nsub, double dm,
                    "           This will be handled improperly by this code!\n");
         }
     }
+    
     // Compute the subband properties, DM delays and offsets
     lofreq = pfi->sub.dat_freqs[0] - pfi->hdr.df * 0.5;
     for (ii = 0, cindex = 0 ; ii < si->nsub ; ii++) {
@@ -287,6 +287,7 @@ void init_subbanding(int nsub, double dm,
             si->numnonzero[ii+kk*si->nsub] = si->numnonzero[ii];
         }
     }
+
     // Now determine the earliest and latest delays
     si->max_early = si->max_late = 0;
     for (ii = 0 ; ii < si->nchan ; ii++) {
@@ -308,6 +309,7 @@ void init_subbanding(int nsub, double dm,
     // We need the following since we do out-of-place subbanding
     si->outbuffer = (unsigned char *)calloc(si->nsub * si->npol * si->buflen, 
                                             sizeof(unsigned char));
+    
     // re-read the first row (i.e. for "real" this time)
     get_current_row(pfi, si);
     
@@ -424,12 +426,13 @@ int main(int argc, char *argv[]) {
     
     // Parse the command line using the excellent program Clig
     cmd = parseCmdline(argc, argv);
+
     // Open the input PSRFITs files
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
     pfi.filenum = cmd->startfile;
     pfi.filename[0] = '\0';
     sprintf(pfi.basefilename, cmd->argv[0]);
-    int rv = psrfits_open(&pfi,READONLY);
+    int rv = psrfits_open(&pfi);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
     // Read the user weights if requested
@@ -443,13 +446,15 @@ int main(int argc, char *argv[]) {
         }
         printf("Overriding input channel weights with those in '%s'\n", cmd->wgtsfile);
     }
+
     // Initialize the subbanding
     // (including reading the first row of data and
     //  putting it in si->buffer)
     init_subbanding(cmd->nsub, cmd->dm, &pfi, &si);
+
     // Update the output PSRFITS structure
     set_output_vals(&pfi, &pfo, &si, cmd);
-    
+
     // Loop through the data
     do {
         // Put the overlapping parts from the next block into si->buffer
@@ -457,7 +462,7 @@ int main(int argc, char *argv[]) {
         if (padding==0)
             stat = psrfits_read_part_DATA(&pfi, si.max_overlap, ptr);
         if (stat || padding) { // Need to use padding since we ran out of data
-            printf("1:Adding a missing row (#%d) of padding to the subbands.\n", 
+            printf("Adding a missing row (#%d) of padding to the subbands.\n", 
                    pfi.tot_rows);
             int ii, jj;
             // Now fill the last part of si->buffer with the chan_avgs so that

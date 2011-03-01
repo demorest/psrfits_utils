@@ -98,41 +98,6 @@ int main(int argc, char *argv[])
       printf("Unable to determine which sideband is which\n");
       exit(EXIT_FAILURE);
    }
-   //Get the file basename and number from command-line argument
-   //(code taken from psrfits2fil)
-   strcpy(outfilename, pfupper.filename);       //Using outfilename as temp. variable
-   pc2 = strrchr(outfilename, '.');     // at .fits
-   *pc2 = 0;                    // terminate string
-   pc1 = pc2 - 1;
-   while ((pc1 >= outfilename) && isdigit(*pc1))
-      pc1--;
-   if (pc1 <= outfilename) {    // need at least 1 char before filenum
-      puts("Illegal input filename. must have chars before the filenumber");
-      exit(1);
-   }
-   pfupper.fnamesepchar = *pc1; //Set the separation char.
-   pc1++;                       // we were sitting on the separtaion char. move to first digit
-   pfupper.fnamedigits = pc2 - pc1;     // how many digits in filenumbering scheme.
-   pc1--;                       //Move back to insert null at correct location
-   *pc1 = 0;                    // null terminate the basefilename
-   strcpy(pfupper.basefilename, outfilename);
-   strcpy(outfilename, pflower.filename);
-   pc2 = strrchr(outfilename, '.');     // at .fits
-   *pc2 = 0;                    // terminate string
-   pc1 = pc2 - 1;
-   while ((pc1 >= outfilename) && isdigit(*pc1))
-      pc1--;
-   if (pc1 <= outfilename) {    // need at least 1 char before filenum
-      puts("Illegal input filename. must have chars before the filenumber");
-      exit(1);
-   }
-   pflower.fnamesepchar = *pc1;
-   pc1++;                       // we were sitting on "." move to first digit
-   pflower.fnamedigits = pc2 - pc1;     // how many digits in filenumbering scheme.
-   pc1--;
-   *pc1 = 0;                    // null terminate the basefilename
-   strcpy(pflower.basefilename, outfilename);
-   //(end of code taken from psrfits2fil)
    //Setting the name of the output file, setting as same name as input file, but removing s0/s1. 
    pc1 = strstr(pflower.filename, "s1");
    pc2 = strrchr(pflower.filename, '.');        //At '.fits'
@@ -143,12 +108,12 @@ int main(int argc, char *argv[])
    strncpy(outfilename + (pc1 - pflower.filename), pc1 + 2, pc2 - pc1 - 2);     //Concatenate from after s1 to char before the separation char.
    pc1 = outfilename + (pc2 - pflower.filename - 2);
    *pc1 = 0;
-   int rv = psrfits_open(&pfupper, READONLY);   //Open upper band
+   int rv = psrfits_open(&pfupper);   //Open upper band
    if (rv) {
       fits_report_error(stderr, rv);
       exit(1);
    }
-   rv = psrfits_open(&pflower, READONLY);       //Open lower band
+   rv = psrfits_open(&pflower);       //Open lower band
    if (rv) {
       fits_report_error(stderr, rv);
       exit(1);
@@ -230,7 +195,7 @@ int main(int argc, char *argv[])
             --upchanskip;
          }
          //Find new values given the number of channels skipped
-         outnchan = nchan + nchan - chanskip + 2;       //New number of channels, plus 2 to make nchan=960 (many factors of 2)
+         pfo.hdr.nchan = outnchan = nchan + nchan - chanskip + 2;       //New number of channels, plus 2 to make nchan=960 (many factors of 2)
          pfo.hdr.BW = (double) outnchan *fabs(df);      //New bandwidth
          pfo.hdr.fctr =         //New center frequency
              (pflower.hdr.fctr - (double) (nchan / 2) * fabs(df)) + pfo.hdr.BW / 2.0;
@@ -254,54 +219,6 @@ int main(int argc, char *argv[])
          loweroffset =          //Number of bytes to skip due to having written previous lower band data
              (nchan * npol * nbits) / 8;
          numtocopylower = (newlowernchan * npol * nbits) / 8;   //Number of bytes to copy from lower band
-         char fitsoutfilename[200];     //Temp file name used while copying HDU's
-         sprintf(fitsoutfilename, "%s%c%0*d.fits", pfo.basefilename,    //Create filename
-                 pfo.fnamesepchar, pfo.fnamedigits, pflower.filenum);
-         fits_create_file(&outfits, fitsoutfilename, &status);
-         psrfits_close(&pflower);       //Close psrfits pflower
-         psrfits_open(&pflower, READONLY);      //Reopen pflower
-         infits = pflower.fptr; //Copy file pointer from pflower structure
-         fits_movnam_hdu(infits, BINARY_TBL, "SUBINT", 0, &status);     //Move to the subint HDU
-         fits_copy_file(infits, outfits, 1, 0, 0, &status);     //Copy everything before current location
-         fits_copy_header(infits, outfits, &status);    //Copy SUBINT HDU header
-         fits_flush_buffer(outfits, 0, &status);
-         int dummy;
-         char tform[10];
-         char tdim[10];
-         sprintf(tform, "%dE", outnchan);       //Set new fits TFORM size for SUBINT info (frequencies,scales,offsets,weights)
-         fits_update_key(outfits, TINT, "NCHAN", &outnchan, NULL, &status);     //Change nchan
-         fits_update_key(outfits, TSTRING, "TFORM13", tform, NULL, &status);    //Update frequencies TFORM
-         fits_update_key(outfits, TSTRING, "TFORM14", tform, NULL, &status);    //Update weights TFORM
-         fits_update_key(outfits, TSTRING, "TFORM15", tform, NULL, &status);    //Update offsets TFORM
-         fits_update_key(outfits, TSTRING, "TFORM16", tform, NULL, &status);    //Update scales TFORM
-         sprintf(tform, "%dB",  //Set new fits TFORM for the number of bytes in the data 
-                 (nsblk * outnchan * npol * nbits) / 8);
-         fits_update_key(outfits, TSTRING, "TFORM17", tform, NULL, &status);    //Update data TFORM
-         fits_read_key(outfits, TINT, "NAXIS1", &dummy, NULL, &status); //Get width of table in bytes
-         dummy =                //Adjusting the number of bytes in table width
-             dummy +            //Previous number +
-             (nsblk * (outnchan - nchan) * npol *       //Find # bytes due to increased data size
-              nbits) / 8 + (outnchan - nchan) * 16;     //Add the increased number of channels * (frequencies,scales,weights,offsets)*sizeof(float) (16)
-         sprintf(tdim, "(1, %d, 1, %d)", outnchan, nsblk);      //Adjust the dimensions of the data
-         fits_update_key(outfits, TSTRING, "TDIM17", tdim, NULL, &status);
-         fits_update_key(outfits, TINT, "NAXIS1", &dummy, NULL, &status);
-         dummy = 0;
-         fits_update_key(outfits, TINT, "NAXIS2", &dummy, NULL, &status);       //Set NAXIS2 to 0, we haven't written any data
-         fits_movabs_hdu(outfits, 1, NULL, &status);    //Move to primary HDU
-         fits_update_key(outfits, TDOUBLE, "OBSFREQ", &pfo.hdr.fctr, NULL, &status);    //Adjust central frequency
-         fits_update_key(outfits, TINT, "OBSNCHAN", &outnchan, NULL, &status);  //Adjust # freq. channels
-         fits_update_key(outfits, TDOUBLE, "OBSBW", &pfo.hdr.BW, NULL, &status);        //Adjust bandwidth
-//         fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &status); //Move back to SUBINT
-         fits_close_file(outfits, &status);     //Close file so it can be opened as psrfits struct
-         pfo.filenum++;         //Set filenum to 1
-         if (psrfits_open(&pfo, READWRITE) != 0) {      //Open the output file using psrfits
-            fprintf(stderr, "error opening file\n");
-            fits_report_error(stderr, pfo.status);
-            exit(1);
-         }
-
-         pflower.status = 0;
-         psrfits_read_subint(&pflower); //Read subint from lower band
          double upmean, upvar, lowmean, lowvar;
          avg_var(pfupper.sub.dat_offsets + (nchan - upchanskip),        //Find the mean and variance of the upper band's offsets
                  upchanskip, &upmean, &upvar);
@@ -317,7 +234,6 @@ int main(int argc, char *argv[])
          printf("Lower scales stats: mean=%f variance=%f\n", lowmean, lowvar);
          printf("Applying factor of %f to upper scales\n", (lowmean / upmean));
          scalefactor = lowmean / upmean;        //Set scale factor used to correct variance differences in the two bands
-
       }
       if (pflower.status == 0 && pfupper.status == 0) {
          //Copy info from the lower band subint struct to the output file's subint struct
