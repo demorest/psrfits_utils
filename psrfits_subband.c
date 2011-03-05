@@ -454,6 +454,8 @@ int main(int argc, char *argv[]) {
 
     // Update the output PSRFITS structure
     set_output_vals(&pfi, &pfo, &si, cmd);
+    if (cmd->outputbasenameP)
+      sprintf(pfo.basefilename, cmd->outputbasename);
 
     // Loop through the data
     do {

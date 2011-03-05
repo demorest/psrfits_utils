@@ -45,6 +45,10 @@ typedef struct s_Cmdline {
   char wgtsfileP;
   char* wgtsfile;
   int wgtsfileC;
+  /***** -o: Basename for the output files */
+  char outputbasenameP;
+  char* outputbasename;
+  int outputbasenameC;
   /***** uninterpreted command line parameters */
   int argc;
   /*@null*/char **argv;
@@ -56,8 +60,6 @@ typedef struct s_Cmdline {
 extern char *Program;
 extern void usage(void);
 extern /*@shared*/Cmdline *parseCmdline(int argc, char **argv);
-
-extern void showOptionValues(void);
 
 #endif
 

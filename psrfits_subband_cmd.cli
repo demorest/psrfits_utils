@@ -24,7 +24,7 @@ Float  -filelen  filelen  {Desired length of the resulting files in GB} \
 Flag   -bytes    bytes    {Make the raw data unsigned chars instead of signed shorts}
 Flag   -onlyI    onlyI    {Only output total intensity data}
 String -weights  wgtsfile {Filename containing ASCII list of channels and weights to use}
-
+String -o  outputbasename {Basename for the output files}
 # Rest of command line:
 Rest infile {Input file name(s) of the PSRFITs datafiles} \
         -c 1 2000
