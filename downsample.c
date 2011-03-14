@@ -45,8 +45,7 @@ void downsample_freq(struct psrfits *pf)
     char *indata = (char *)pf->sub.data;
     char *outdata = (char *)pf->sub.data;
     const int dsfact = hdr->ds_freq_fact;
-    const int offset = dsfact >> 1;
-    const int shift = ffs(dsfact) - 1; // dsfact's power of 2
+    const int offset = dsfact / 2;
 
     // Treat the polns as being parts of the same spectrum
     int out_npol = hdr->npol;
@@ -58,11 +57,9 @@ void downsample_freq(struct psrfits *pf)
         // and over adjacent input chans for each time
         for (jj = 0, itmp = offset ; jj < dsfact ; jj++)
             itmp += *indata++;
-        // The following adds 1/2 of dsfact to the total (which allows
-        // for rounding-type behavior) and then divides by dsfact (via
-        // a bit shift of the appropriate number of bits, since dsfact
-        // should be a power-of-two).
-        *outdata++ = itmp >> shift;
+        // The following is 1/2 of dsfact (offset) plus the total (which 
+        // allows for rounding-type behavior) and then divided by dsfact.
+        *outdata++ = itmp / dsfact;
     }
 }
 
@@ -76,8 +73,7 @@ void downsample_time(struct psrfits *pf)
     char *data = (char *)pf->sub.data;
     char *indata, *outdata;
     const int dsfact = hdr->ds_time_fact;
-    const int offset = dsfact >> 1;
-    const int shift = ffs(dsfact) - 1; // dsfact's power of 2
+    const int offset = dsfact / 2;
 
     // Treat the polns as being parts of the same spectrum
     int out_npol = hdr->npol;
@@ -98,7 +94,9 @@ void downsample_time(struct psrfits *pf)
                 itmp += *indata;
                 indata += out_nchan;
             }
-            *outdata++ = itmp >> shift;
+            // The following is 1/2 of dsfact (offset) plus the total (which 
+            // allows for rounding-type behavior) and then divided by dsfact.
+            *outdata++ = itmp / dsfact;
         }
     }
 }
