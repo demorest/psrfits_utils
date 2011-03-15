@@ -85,7 +85,8 @@ struct subint {
     float *dat_weights;     // Ptr to array of Weights for each channel
     float *dat_offsets;     // Ptr to array of offsets for each chan * pol
     float *dat_scales;      // Ptr to array of scalings for each chan * pol
-    unsigned char *data;    // Ptr to the raw data itself
+    unsigned char *rawdata; // Ptr to the raw data itself (for non-8bit)
+    unsigned char *data;    // Ptr to 8-bit representation of the data itself
 };
 
 #include "polyco_struct.h"

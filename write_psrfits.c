@@ -353,9 +353,9 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_write_col(pf->fptr, TFLOAT, 15, row, 1, nivals, sub->dat_offsets, status);
     fits_write_col(pf->fptr, TFLOAT, 16, row, 1, nivals, sub->dat_scales, status);
     if (mode==search) {
-        // Need to change this for other data types...
+        if (hdr->nbits==4) pf_8bit_to_4bit(pf);
         fits_write_col(pf->fptr, TBYTE, 17, row, 1, out_nbytes, 
-                       sub->data, status);
+                       sub->rawdata, status);
     } else if (mode==fold) { 
         // Fold mode writes floats for now..
         fits_write_col(pf->fptr, TFLOAT, 17, row, 1, out_nbytes/sizeof(float), 
