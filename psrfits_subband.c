@@ -227,8 +227,14 @@ void init_subbanding(int nsub, double dm,
                                           * pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.dat_scales  = (float *)malloc(sizeof(float)
                                           * pfi->hdr.nchan * pfi->hdr.npol);
+    pfi->sub.rawdata = (unsigned char *)malloc(pfi->sub.bytes_per_subint);
     // This is temporary...
-    pfi->sub.data = (unsigned char *)malloc(pfi->sub.bytes_per_subint);
+    if (pfi->hdr.nbits!=8) {
+        pfi->sub.data = (unsigned char *)malloc(pfi->sub.bytes_per_subint *
+                                                (8 / pfi->hdr.nbits));
+    } else {
+        pfi->sub.data = pfi->sub.rawdata;
+    }
         
     // Read the first row of data
     psrfits_read_subint(pfi);
@@ -304,7 +310,8 @@ void init_subbanding(int nsub, double dm,
                                          si->bufwid, sizeof(unsigned char));
     // The input data will be stored directly in the buffer space
     // So the following is really just an offset into the bigger buffer
-    free(pfi->sub.data);  // Free the temporary allocation from above
+    if (pfi->hdr.nbits!=8)
+        free(pfi->sub.data);  // Free the temporary allocation from above
     pfi->sub.data = si->buffer + si->max_overlap * si->bufwid * sizeof(unsigned char);
     // We need the following since we do out-of-place subbanding
     si->outbuffer = (unsigned char *)calloc(si->nsub * si->npol * si->buflen, 
@@ -431,7 +438,7 @@ int main(int argc, char *argv[]) {
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
     pfi.filenum = cmd->startfile;
     pfi.filename[0] = '\0';
-    sprintf(pfi.basefilename, cmd->argv[0]);
+    strncpy(pfi.basefilename, cmd->argv[0], 199);
     int rv = psrfits_open(&pfi);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 

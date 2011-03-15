@@ -136,6 +136,7 @@ int psrfits_open(struct psrfits *pf) {
     return *status;
 }
 
+
 /* Read next subint from the set of files described
  * by the psrfits struct.  It is assumed that all files
  * form a consistent set.  Read automatically goes to the
@@ -202,12 +203,14 @@ int psrfits_read_subint(struct psrfits *pf) {
             NULL, status);
     fits_read_col(pf->fptr, TFLOAT, 16, row, 1, nivals, NULL, sub->dat_scales,
             NULL, status);
-    if (mode==SEARCH_MODE)
+    if (mode==SEARCH_MODE) {
         fits_read_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint,
-                NULL, sub->data, NULL, status);
-    else if (mode==FOLD_MODE)
+                      NULL, sub->rawdata, NULL, status);
+        if (hdr->nbits==4) pf_4bit_to_8bit(pf);
+    } else if (mode==FOLD_MODE) {
         fits_read_col(pf->fptr, TFLOAT, 17, row, 1, sub->bytes_per_subint,
                 NULL, sub->data, NULL, status);
+    }
 
     // Complain on error
     fits_report_error(stderr, *status);
@@ -234,6 +237,7 @@ int psrfits_read_subint(struct psrfits *pf) {
 int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer) {
 
     struct hdrinfo *hdr = &(pf->hdr);
+    unsigned char *rawbuffer=buffer;
     int status=0;
 
     // See if we need to move to next file
@@ -250,11 +254,19 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer) {
         }
     }
 
-    int bytes_to_read = (hdr->nbits * hdr->nchan * hdr->npol * N) / 8;
+    long long numdata = hdr->nchan * hdr->npol * N;
+    long long bytes_to_read = (hdr->nbits * numdata) / 8L;
 
+    if (hdr->nbits==4) {
+        rawbuffer = (unsigned char *)malloc(bytes_to_read);
+    }
     // TODO: bad! really need to base this on column names
     fits_read_col(pf->fptr, TBYTE, 17, pf->rownum, 1, bytes_to_read,
-                  NULL, buffer, NULL, &status);
+                  NULL, rawbuffer, NULL, &status);
+    if (hdr->nbits==4) {
+        convert_4bit_to_8bit(rawbuffer, (unsigned char *)buffer, numdata);
+        free(rawbuffer);
+    }
     
     // Complain on error
     fits_report_error(stderr, status);
