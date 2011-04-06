@@ -27,3 +27,4 @@ libtool
 psrfits_singlepulse
 psrfits_subband
 mpimerge_psrfits
+find_dropped_blocks
