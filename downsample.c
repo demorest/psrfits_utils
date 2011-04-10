@@ -17,7 +17,7 @@ void convert_4bit_to_8bit(unsigned char *indata, unsigned char *outdata, int N)
     for (ii = 0 ; ii < N / 2 ; ii++, indata++) {
         uctmp = *indata;
         *outdata++ = uctmp >> 4;   // 1st 4 bits (MSBs) are first nibble
-        *outdata++ = uctmp & 0x0F; // 2nd 4 bits (MSBs) are second nibble
+        *outdata++ = uctmp & 0x0F; // 2nd 4 bits (LSBs) are second nibble
     }
 }
 
@@ -40,7 +40,7 @@ void convert_8bit_to_4bit(unsigned char *indata, unsigned char *outdata, int N)
     // Convert all the data from 4-bit to 8-bit
     for (ii = 0 ; ii < N / 2 ; ii++, outdata++) {
         *outdata = *indata++ << 4;  // 1st 4 bits (MSBs) are first point
-        *outdata += *indata++;      // 2nd 4 bits (MSBs) are second point
+        *outdata += *indata++;      // 2nd 4 bits (LSBs) are second point
     }
 }
 
@@ -48,9 +48,11 @@ void convert_8bit_to_4bit(unsigned char *indata, unsigned char *outdata, int N)
 void pf_8bit_to_4bit(struct psrfits *pf)
 // This converts 8-bit pf->sub.data into 4-bit pf->sub.rawdata
 {
+    long long numoutsamp = pf->sub.bytes_per_subint * 2 / \
+        (pf->hdr.ds_time_fact * pf->hdr.ds_freq_fact);
     convert_8bit_to_4bit((unsigned char *)pf->sub.data,
                          (unsigned char *)pf->sub.rawdata,
-                         pf->sub.bytes_per_subint * 2);
+                         numoutsamp);
 }
 
 
