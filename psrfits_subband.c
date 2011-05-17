@@ -13,7 +13,7 @@
 
 extern double delay_from_dm(double dm, double freq_emitted);
 extern int split_root_suffix(char *input, char **root, char **suffix);
-extern void avg_std(char *x, int n, double *mean, double *std, int stride);
+extern void avg_std(float *x, int n, double *mean, double *std, int stride);
 extern void split_path_file(char *input, char **path, char **file);
 
 struct subband_info {
@@ -70,7 +70,7 @@ void get_chan_stats(struct psrfits *pfi, struct subband_info *si){
 
     for (ii = 0 ; ii < si->bufwid ; ii++) {
         // Only use 1/8 of the total length in order to speed things up
-        avg_std((char *)(pfi->sub.data+ii), si->buflen/8, &avg, &std, si->bufwid);
+        avg_std(pfi->sub.fdata+ii, si->buflen/8, &avg, &std, si->bufwid);
         si->chan_avgs[ii] = avg;
         si->chan_stds[ii] = std;
     }
@@ -82,7 +82,7 @@ void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
     double avg, std;
 
     for (ii = 0 ; ii < stride ; ii++) {
-        avg_std((char *)(pfo->sub.data+ii), si->buflen, &avg, &std, stride);
+        avg_std(pfo->sub.fdata+ii, si->buflen, &avg, &std, stride);
     }
 }
 
