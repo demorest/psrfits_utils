@@ -14,16 +14,18 @@ float vector_sum(float *vector, int N)
 
 
 void combine_datamods(int N, float *inwgts, float *inscls, float *inoffs, 
-                      float *outwgt, float *outscl, float *outoff);
+                      float *outwgt, float *outscl, float *outoff)
 {
     int ii;
-    float inwgt;
-    
+
     *outwgt = *outscl = *outoff = 0.0;
     for (ii = 0 ; ii < N ; ii++) {
-        inwgt = inwgts[ii];
+        float inwgt = inwgts[ii];
+        // weights are averaged
         *outwgt += inwgt;
-        *outscl += inwgt * inscls[ii] * inscls[ii];  // adding in quadrature
+        // scales are combined in quadrature
+        *outscl += inwgt * inscls[ii] * inscls[ii];
+        // offsets are weighted average
         *outoff += inwgt * inoffs[ii];
     }
     *outscl = sqrt(*outscl / *outwgt);
@@ -35,15 +37,15 @@ void combine_datamods(int N, float *inwgts, float *inscls, float *inoffs,
 void make_weighted_datamods(struct psrfits *inpf, struct psrfits *outpf)
 {
     int ii, jj;
-    struct hdrinfo *inhdr = &(pf->inhdr);
+    struct hdrinfo *inhdr = &(inpf->hdr);
     const int N = inhdr->ds_freq_fact;
     const int out_nchan = inhdr->nchan / N;
-    const float *inwgts = inpf->sub.dat_weights;
-    const float *inscls = inpf->sub.dat_scales;
-    const float *inoffs = inpf->sub.dat_offsets;
-    const float *outwgts = outpf->sub.dat_weights;
-    const float *outscls = outpf->sub.dat_scales;
-    const float *outoffs = outpf->sub.dat_offsets;
+    float *inwgts = inpf->sub.dat_weights;
+    float *inscls = inpf->sub.dat_scales;
+    float *inoffs = inpf->sub.dat_offsets;
+    float *outwgts = outpf->sub.dat_weights;
+    float *outscls = outpf->sub.dat_scales;
+    float *outoffs = outpf->sub.dat_offsets;
 
     for (ii = 0, jj = 0 ; ii < out_nchan ; ii++, jj += N) {
         combine_datamods(N, inwgts+jj, inscls+jj, inoffs+jj,
