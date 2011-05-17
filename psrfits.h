@@ -85,6 +85,7 @@ struct subint {
     float *dat_weights;     // Ptr to array of Weights for each channel
     float *dat_offsets;     // Ptr to array of offsets for each chan * pol
     float *dat_scales;      // Ptr to array of scalings for each chan * pol
+    float *fdata;           // Ptr to optional array to compute scaled and offset data
     unsigned char *rawdata; // Ptr to the raw data itself (for non-8bit)
     unsigned char *data;    // Ptr to 8-bit representation of the data itself
 };
@@ -132,6 +133,6 @@ int psrfits_remove_ephem(struct psrfits *pf);
 // In read_psrfits.c
 int psrfits_open(struct psrfits *pf);
 int psrfits_read_subint(struct psrfits *pf);
-int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer);
+int psrfits_read_part_DATA(struct psrfits *pf, int N, float *fbuffer);
 
 #endif
