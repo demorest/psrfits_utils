@@ -14,6 +14,7 @@ dist_data_DATA = \
 
 lib_LTLIBRARIES = libpsrfits_utils.la
 libpsrfits_utils_la_SOURCES = \
+         weighting.c \
          downsample.c \
          fold.c \
          misc_utils.c \
