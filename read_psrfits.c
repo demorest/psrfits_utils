@@ -150,7 +150,7 @@ void apply_scales_and_offsets(int numchan, int numpol, int numspect,
         float *sptr = scales;
         float *optr = offsets;
         for (jj = 0 ; jj < N ; jj++, sptr++, optr++, inptr++, outptr++) {
-            *outptr = *sptr * (float )(*inptr) + *optr;
+            *outptr = *sptr * (float)(*inptr) + *optr;
         }
     }
 }
