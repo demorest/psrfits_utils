@@ -341,5 +341,5 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, float *fbuffer) {
     // Complain on error
     fits_report_error(stderr, *status);
     
-    return status;
+    return *status;
 }
