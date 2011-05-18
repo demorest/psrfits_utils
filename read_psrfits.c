@@ -121,8 +121,8 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
 
     if (mode==SEARCH_MODE) {
-        long long lltmp;  // Prevents a possible overflow in numerator below
-        lltmp = (hdr->nbits * hdr->nchan * hdr->npol * hdr->nsblk) / 8L;
+        long long lltmp = hdr->nsblk;  // Prevents a possible overflow in numerator below
+        lltmp = (lltmp * hdr->nbits * hdr->nchan * hdr->npol) / 8L;
         sub->bytes_per_subint = (int) lltmp;
     } else if (mode==FOLD_MODE) {
         sub->bytes_per_subint = 
@@ -170,10 +170,18 @@ int psrfits_read_subint(struct psrfits *pf) {
     // TODO: bad! really need to base this on column names
     fits_read_col(pf->fptr, TDOUBLE, 1, row, 1, 1, NULL, &(sub->tsubint), 
             NULL, status);
+    double last_offs = sub->offs;
     fits_read_col(pf->fptr, TDOUBLE, 2, row, 1, 1, NULL, &(sub->offs), 
             NULL, status);
     // Hack to fix wrapping in coherent data
-    if (sub->offs < 0.0) sub->offs += (4294967296L * hdr->dt);
+    if (pf->tot_rows > 0) {
+        double delta_offs = sub->offs - last_offs;
+	double wrap_offs = 4294967296L * hdr->dt;
+        if (delta_offs < -0.5*wrap_offs) {
+            sub->offs += wrap_offs;
+	    fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
+        }
+    }
     fits_read_col(pf->fptr, TDOUBLE, 3, row, 1, 1, NULL, &(sub->lst), 
             NULL, status);
     fits_read_col(pf->fptr, TDOUBLE, 4, row, 1, 1, NULL, &(sub->ra), 

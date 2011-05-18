@@ -12,9 +12,25 @@ void get_stokes_I(struct psrfits *pf)
     int ii, inbytes, outbytes;
     struct hdrinfo *hdr = &(pf->hdr);
     unsigned char *data = pf->sub.data;
+    const int out_nchan = hdr->nchan / hdr->ds_freq_fact;
 
-    outbytes = hdr->nbits * hdr->nchan / 8;
+    outbytes = hdr->nbits * out_nchan / 8;
     inbytes = outbytes * 4;  // 4 Stokes params
+
+    // In this mode, average the polns first to make it like IQUV
+    if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0) {
+        unsigned char *bbptr;
+        int jj, itmp;
+        for (ii = 0 ; ii < hdr->nsblk ; ii++) {
+            data = pf->sub.data + ii * inbytes;
+            bbptr = data + outbytes;
+            for (jj = 0 ; jj < out_nchan ; jj++, data++, bbptr++) {
+                itmp = (*data + *bbptr) >> 1; // Average AA and BB polns
+                *data = itmp;
+            }
+        }
+        data = pf->sub.data;
+    }
     // Start from 1 since we don't need to move the 1st spectra
     for (ii = 1 ; ii < hdr->nsblk ; ii++)
         memcpy(data + ii * outbytes, data + ii * inbytes, outbytes);

@@ -276,7 +276,8 @@ int psrfits_create(struct psrfits *pf) {
         fits_modify_vector_len(pf->fptr, 16, itmp, status); // DAT_SCL
         
         if (mode==search) {
-            lltmp = (hdr->nbits * out_nchan * out_npol * out_nsblk) / 8L;
+            lltmp = out_nsblk;
+            lltmp = (lltmp * hdr->nbits * out_nchan * out_npol) / 8L;
         } else if (mode==fold)
             lltmp = (hdr->nbin * out_nchan * out_npol);
         fits_modify_vector_len(pf->fptr, 17, lltmp, status); // DATA
