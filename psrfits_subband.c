@@ -74,6 +74,7 @@ void get_chan_stats(struct psrfits *pfi, struct subband_info *si){
     for (ii = 0 ; ii < si->bufwid ; ii++) {
         // Only use 1/8 of the total length in order to speed things up
         avg_std(pfi->sub.fdata + ii, si->buflen / 8, &avg, &std, si->bufwid);
+        //printf("%d %f %f\n", ii, avg, std);
         si->chan_avgs[ii] = avg;
         si->chan_stds[ii] = std;
     }
@@ -86,7 +87,7 @@ void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
 
     for (ii = 0 ; ii < stride ; ii++) {
         avg_std(pfo->sub.fdata+ii, si->buflen, &avg, &std, stride);
-        // printf("%d %f %f\n", ii, avg, std);
+        //printf("%d %f %f\n", ii, avg, std);
     }
 }
 
@@ -291,7 +292,7 @@ void init_subbanding(struct psrfits *pfi,
     } else {
         pfi->sub.data = pfi->sub.rawdata;
     }
-        
+
     // Read the first row of data
     psrfits_read_subint(pfi);
     if (si->userwgts) // Always overwrite if using user weights
@@ -382,8 +383,13 @@ void init_subbanding(struct psrfits *pfi,
     pfo->hdr.ds_time_fact = cmd->dstime;
     pfo->hdr.onlyI = cmd->onlyIP;
     pfo->hdr.chan_dm = si->dm;
-    pfo->sub.data = (unsigned char *)calloc(si->nsub * si->npol * si->buflen,
-                                            sizeof(unsigned char));
+    pfo->sub.rawdata = (unsigned char *)malloc(si->nsub * si->npol * si->buflen);
+    if (pfo->hdr.nbits!=8) {
+        pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen *
+                                                (8 / pfi->hdr.nbits));
+    } else {
+        pfo->sub.data = pfo->sub.rawdata;
+    }
     si->outfbuffer = (float *)calloc(si->nsub * si->npol * si->buflen,
                                      sizeof(float));
     pfo->sub.fdata = si->outfbuffer;
