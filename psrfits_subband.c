@@ -15,6 +15,9 @@ extern double delay_from_dm(double dm, double freq_emitted);
 extern int split_root_suffix(char *input, char **root, char **suffix);
 extern void avg_std(float *x, int n, double *mean, double *std, int stride);
 extern void split_path_file(char *input, char **path, char **file);
+extern void get_stokes_I(struct psrfits *pf);
+extern void downsample_time(struct psrfits *pf);
+extern void make_weighted_datamods(struct psrfits *inpf, struct psrfits *outpf);
 
 struct subband_info {
     int nsub;
@@ -136,7 +139,6 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
     static int firsttime = 1, num_pad_blocks = 0;
     static double last_offs, row_duration;
     double diff_offs, dnum_blocks;
-    int ii, jj;
     
     if (firsttime) {
         row_duration = pfi->sub.tsubint;
@@ -210,7 +212,6 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
     float *outdata = si->outfbuffer;
     const int dsfact = si->chan_per_sub;
     const int in_bufwid = si->bufwid;
-    const int out_bufwid = si->bufwid / si->chan_per_sub;
 
     // Compute the sumwgts vector
     float *inv_sumwgts = (float *)malloc(sizeof(float) * si->nsub);
@@ -403,7 +404,7 @@ void init_subbanding(struct psrfits *pfi,
 void read_weights(char *filenm, int *numchan, float **weights)
 {
     FILE *infile;
-    int N, chan;
+    int ii, N, chan;
     float wgt;
     char line[80];
 
@@ -426,12 +427,12 @@ void read_weights(char *filenm, int *numchan, float **weights)
 
     // Rewind and read the EVENTs for real
     rewind(infile);
-    N = 0;
-    while (!feof(infile)){
+    ii = 0;
+    while (ii < N) {
         fgets(line, 80, infile);
         if (line[0]!='#') {
-            sscanf(line, "%d %f\n", &chan, *weights+N);
-            N++;
+            sscanf(line, "%d %f\n", &chan, (*weights)+ii);
+            ii++;
         }
     }
     fclose(infile);
