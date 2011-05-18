@@ -28,8 +28,9 @@ void combine_datamods(int N, float *inwgts, float *inscls, float *inoffs,
         // offsets are weighted average
         *outoff += inwgt * inoffs[ii];
     }
-    *outscl = sqrt(*outscl / *outwgt);
-    *outoff /= *outwgt;
+    // avoid divide by zeros if weights are all zero
+    *outscl = (*outwgt) ? sqrt(*outscl / *outwgt) : 1.0;
+    *outoff = (*outwgt) ? *outoff / *outwgt : 0.0;
     *outwgt /= N;  // This is normal average of weights
 }
 
@@ -37,9 +38,8 @@ void combine_datamods(int N, float *inwgts, float *inscls, float *inoffs,
 void make_weighted_datamods(struct psrfits *inpf, struct psrfits *outpf)
 {
     int ii, jj;
-    struct hdrinfo *inhdr = &(inpf->hdr);
-    const int N = inhdr->ds_freq_fact;
-    const int out_nchan = inhdr->nchan / N;
+    const int out_nchan = inpf->hdr.nchan / outpf->hdr.ds_freq_fact;
+    const int N = outpf->hdr.ds_freq_fact;
     float *inwgts = inpf->sub.dat_weights;
     float *inscls = inpf->sub.dat_scales;
     float *inoffs = inpf->sub.dat_offsets;
@@ -50,6 +50,7 @@ void make_weighted_datamods(struct psrfits *inpf, struct psrfits *outpf)
     for (ii = 0, jj = 0 ; ii < out_nchan ; ii++, jj += N) {
         combine_datamods(N, inwgts+jj, inscls+jj, inoffs+jj,
                          outwgts+ii, outscls+ii, outoffs+ii);
+        // printf("%4d  %8.5f %8.5f %8.5f \n", ii, outpf->sub.dat_weights[ii], outpf->sub.dat_scales[ii], outpf->sub.dat_offsets[ii]);
     }
 }
 
