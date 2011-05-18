@@ -87,6 +87,7 @@ void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
 
     for (ii = 0 ; ii < stride ; ii++) {
         avg_std(pfo->sub.fdata+ii, si->buflen, &avg, &std, stride);
+        // printf("%d %f %f\n", ii, avg, std);
     }
 }
 
