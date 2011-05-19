@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_subband" 1 "09Aug10" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_subband" 1 "04Mar11" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -34,6 +34,7 @@ Partially de-disperse and subband PSRFITS search-mode data.
 [-bytes]
 [-onlyI]
 [-weights wgtsfile]
+[-o outputbasename]
 infile ...
 .\" cligPart SYNOPSIS end
 
@@ -79,6 +80,10 @@ Make the raw data unsigned chars instead of signed shorts.
 Only output total intensity data.
 .IP -weights
 Filename containing ASCII list of channels and weights to use,
+.br
+1 String value
+.IP -o
+Basename for the output files,
 .br
 1 String value
 .IP infile
