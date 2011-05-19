@@ -486,6 +486,9 @@ int main(int argc, char *argv[]) {
     //  putting it in si->fbuffer)
     init_subbanding(&pfi, &pfo, &si, cmd);
 
+    if (cmd->outputbasenameP)
+      sprintf(pfo.basefilename, cmd->outputbasename);
+
     // Loop through the data
     do {
         // Put the overlapping parts from the next block into si->buffer
