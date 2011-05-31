@@ -323,7 +323,7 @@ int make_polycos(const char *parfile, struct hdrinfo *hdr,
         make_polycos_cleanup();
         return(-1);
     }
-    fprintf(fout, "%c 12 60 15 %.5f\n\n\n%s\n",
+    fprintf(fout, "%c 12 30 15 %.5f\n\n\n%s\n",
             tcode, hdr->fctr, parsrc);
     fclose(fout);
 
