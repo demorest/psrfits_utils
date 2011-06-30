@@ -250,7 +250,6 @@ int main(int argc, char *argv[])
             if (droppedrow || 
                 status==108 || 
                 ((myid > 0) && (status==114 || status==107) && (!baddata))) {
-
                 if (status) printf("Proc %d, row %d:  Ignoring CFITSIO error %d.  Filling with zeros.\n", myid, pf.rownum, status);
                 // Set the data and the weights to all zeros
                 for (ii = 0 ; ii < pf.hdr.nchan ; ii++) 
