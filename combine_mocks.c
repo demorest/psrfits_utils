@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
    int nchan = pflower.hdr.nchan;
    int outnchan;
    int npol = pflower.hdr.npol;
-   int nbits = pflower.hdr.nbits*2;
+   int nbits = pflower.hdr.nbits;
    int nsblk = pflower.hdr.nsblk;
    //Allocate memory for all upper and lower data
    pflower.sub.dat_freqs = (float *) malloc(sizeof(float) * nchan);
@@ -213,15 +213,15 @@ int main(int argc, char *argv[])
          newuppernchan = nchan - upchanskip;    //The number of channels to copy from the upper sideband.
          newlowernchan = nchan - lowchanskip;   //The number of channels to copy from the lower sideband.
 
-         extrachanoffset = (2 * nbits) / 8;     //Offset for 2 extra freq channels making nchan 960
-         outoffset = (outnchan * npol * nbits) / 8;     //Offset in each loop due to previously written data
-         upperoffset = (nchan * npol * nbits) / 8;      //Offset in loop for upper band
-         numtocopyupper = (newuppernchan * npol * nbits) / 8;   //Number of bytes to copy from upper band
-         loweroffset_skip = (lowchanskip * npol * nbits) / 8;   //Number of bytes to skip when copying lower band due to 
+         extrachanoffset = 2;     //Offset for 2 extra freq channels making nchan 960 in bytes
+         outoffset = (outnchan * npol);     //Offset in each loop due to previously written data
+         upperoffset = (nchan * npol);      //Offset in loop for upper band
+         numtocopyupper = (newuppernchan * npol);   //Number of bytes to copy from upper band
+         loweroffset_skip = (lowchanskip * npol);   //Number of bytes to skip when copying lower band due to 
          //having written upper band
          loweroffset =          //Number of bytes to skip due to having written previous lower band data
-             (nchan * npol * nbits) / 8;
-         numtocopylower = (newlowernchan * npol * nbits) / 8;   //Number of bytes to copy from lower band
+             (nchan * npol);
+         numtocopylower = (newlowernchan * npol);   //Number of bytes to copy from lower band
          double upmean, upvar, lowmean, lowvar;
          avg_var(pfupper.sub.dat_offsets + (nchan - upchanskip),        //Find the mean and variance of the upper band's offsets
                  upchanskip, &upmean, &upvar);
