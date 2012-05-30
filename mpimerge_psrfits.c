@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
@@ -48,7 +49,7 @@ int main(int argc, char *argv[])
         double value;
         int index;
     } offs_in, offs_out;
-    char hostname[100];
+    char hostname[256];
     char output_base[256] = "\0";
     MPI_Status mpistat;
     /* Cmd line */
@@ -99,25 +100,21 @@ int main(int argc, char *argv[])
 
     // Determine the hostnames of the processes
     {
-        FILE *hostfile;
-        
-        hostfile = fopen("/etc/hostname", "r");
-        fscanf(hostfile, "%s\n", hostname);
-        fclose(hostfile);
-        if (hostname != NULL) {
+        if (gethostname(hostname, 255) < 0)
+            strcpy(hostname, "unknown");
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (myid == 0) printf("\n");
+        fflush(NULL);
+        for (ii = 0 ; ii < numprocs ; ii++) {
             MPI_Barrier(MPI_COMM_WORLD);
-            if (myid == 0) printf("\n");
+            if (myid == ii)
+                printf("Process %3d is on machine %s\n", myid, hostname);
             fflush(NULL);
-            for (ii = 0 ; ii < numprocs ; ii++) {
-                MPI_Barrier(MPI_COMM_WORLD);
-                if (myid == ii)
-                    printf("Process %3d is on machine %s\n", myid, hostname);
-                fflush(NULL);
-                MPI_Barrier(MPI_COMM_WORLD);
-            }
             MPI_Barrier(MPI_COMM_WORLD);
-            fflush(NULL);
         }
+        MPI_Barrier(MPI_COMM_WORLD);
+        fflush(NULL);
     }
     
     // Basefilenames for the GPU nodes
