@@ -505,7 +505,7 @@ int main(int argc, char *argv[]) {
             /* Clear counters, avgs */
             clear_foldbuf(&fb);
             pf_out.sub.offs = 0.0;
-            offs0 = pf.sub.offs - 0.5*pf.sub.tsubint;
+            offs0 = pf.sub.offs + 0.5*pf.sub.tsubint;
             subcount=0;
 
             /* Set next output time */
