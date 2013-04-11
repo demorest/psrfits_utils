@@ -32,6 +32,9 @@ void usage() {
            "  -o name, --output=name   Output base filename (auto-generate)\n"
            "  -i nn, --initial=nn      Starting input file number (1)\n"
            "  -f nn, --final=nn        Ending input file number (auto)\n"
+           "  -s nn, --starthpc=nn     hpc ID for first file\n"
+           "  -V dir, --vegas=dir      Use VEGAS filenames, in specified dir\n"
+           "  -r, --reverse            Combine files in reverse order\n"
            "\n");
 }
 
@@ -49,13 +52,19 @@ int main(int argc, char *argv[])
         int index;
     } offs_in, offs_out;
     char hostname[100];
+    char vegas_base_dir[256] = "\0";
     char output_base[256] = "\0";
+    int starthpc = 0;
+    int reverse = 0;
     MPI_Status mpistat;
     /* Cmd line */
     static struct option long_opts[] = {
         {"output",  1, NULL, 'o'},
         {"initial", 1, NULL, 'i'},
         {"final",   1, NULL, 'f'},
+        {"vegas",   1, NULL, 'V'},
+        {"starthpc",1, NULL, 's'},
+        {"reverse" ,0, NULL, 'r'},
         {0,0,0,0}
     };
     int opt, opti;
@@ -66,7 +75,7 @@ int main(int argc, char *argv[])
     numbands = numprocs - 1;
 
     // Process the command line
-    while ((opt=getopt_long(argc,argv,"o:i:f:",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:i:f:V:s:r",long_opts,&opti))!=-1) {
         switch (opt) {
         case 'o':
             strncpy(output_base, optarg, 255);
@@ -77,6 +86,15 @@ int main(int argc, char *argv[])
             break;
         case 'f':
             fnum_end = atoi(optarg);
+            break;
+        case 'V':
+            strcpy(vegas_base_dir, optarg);
+            break;
+        case 's':
+            starthpc = atoi(optarg);
+            break;
+        case 'r':
+            reverse = 1;
             break;
         default:
             if (myid==0) usage();
@@ -101,7 +119,7 @@ int main(int argc, char *argv[])
     {
         FILE *hostfile;
         
-        hostfile = fopen("/etc/hostname", "r");
+        hostfile = fopen("/proc/sys/kernel/hostname", "r");
         fscanf(hostfile, "%s\n", hostname);
         fclose(hostfile);
         if (hostname != NULL) {
@@ -122,8 +140,28 @@ int main(int argc, char *argv[])
     
     // Basefilenames for the GPU nodes
     if (myid > 0) {
-        sprintf(pf.basefilename, "/data/gpu/partial/%s/%s", 
-                hostname, argv[optind]);
+
+        // Default to GUPPI mode
+        if (vegas_base_dir[0]=='\0') 
+            sprintf(pf.basefilename, "/data/gpu/partial/%s/%s", 
+                    hostname, argv[optind]);
+
+        // VEGAS mode
+        else {
+
+            int hpcidx;
+            if (reverse)
+                hpcidx = starthpc - myid + 1;
+            else
+                hpcidx = myid + starthpc - 1;
+
+            sprintf(pf.basefilename, "%s/vegas-hpc%d-bdata1/%s", 
+                    vegas_base_dir, hpcidx, argv[optind]);
+
+            printf("**********: hostname = %s, myid = %d, datamnt = %d, basename=%s\n", 
+                    hostname, myid, hpcidx, pf.basefilename);
+
+        }
     }
 
     // Initialize some key parts of the PSRFITS structure
