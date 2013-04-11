@@ -38,7 +38,7 @@ void usage() {
 
 int main(int argc, char *argv[])
 {
-    int ii, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
+    int ii, ipol, nc = 0, ncnp = 0, gpubps = 0, status = 0, statsum = 0;
     int fnum_start = 1, fnum_end = 0;
     int numprocs, numbands, myid, baddata = 0, droppedrow = 0;
     int *counts, *offsets;
@@ -334,16 +334,18 @@ int main(int argc, char *argv[])
                              0, MPI_COMM_WORLD);
         
         // Vectors of length nchan * npol
-        for (ii = 1 ; ii < numprocs ; ii++) {
-            counts[ii] = ncnp;
-            offsets[ii] = (ii - 1) * ncnp;
+        for (ipol=0; ipol < pf.hdr.npol; ipol++) {
+            for (ii = 1 ; ii < numprocs ; ii++) {
+                counts[ii] = nc;
+                offsets[ii] = ipol*nc*numbands + (ii - 1) * nc;
+            }
+            status = MPI_Gatherv(pf.sub.dat_offsets+(ipol*nc), nc, MPI_FLOAT, 
+                                 pf.sub.dat_offsets, counts, offsets, 
+                                 MPI_FLOAT, 0, MPI_COMM_WORLD);
+            status = MPI_Gatherv(pf.sub.dat_scales+(ipol*nc), nc, MPI_FLOAT, 
+                                 pf.sub.dat_scales, counts, offsets, 
+                                 MPI_FLOAT, 0, MPI_COMM_WORLD);
         }
-        status = MPI_Gatherv(pf.sub.dat_offsets, ncnp, MPI_FLOAT, 
-                             pf.sub.dat_offsets, counts, offsets, MPI_FLOAT, 
-                             0, MPI_COMM_WORLD);
-        status = MPI_Gatherv(pf.sub.dat_scales, ncnp, MPI_FLOAT, 
-                             pf.sub.dat_scales, counts, offsets, MPI_FLOAT, 
-                             0, MPI_COMM_WORLD);
 
         // Vectors of length pf.sub.bytes_per_subint for the raw data
         for (ii = 1 ; ii < numprocs ; ii++) {
