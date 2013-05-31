@@ -138,27 +138,35 @@ int psrfits_open(struct psrfits *pf) {
 
 
 void apply_scales_and_offsets(int numchan, int numpol, int numspect,
+                              int numunsigned, 
                               float *scales, float *offsets,
                               unsigned char *inbuf, float *outbuf)
 {
-    int ii, jj;
-    unsigned char *inptr = inbuf;
+    int ii, jj, poln;
     float *outptr = outbuf;
-    const int N = numchan * numpol;
 
     for (ii = 0 ; ii < numspect ; ii++) {
-        float *sptr = scales;
-        float *optr = offsets;
-        for (jj = 0 ; jj < N ; jj++, sptr++, optr++, inptr++, outptr++) {
-            *outptr = *sptr * (float)(*inptr) + *optr;
+        for (poln = 0 ; poln < numpol ; poln++) {
+            float *sptr = scales + poln * numchan;
+            float *optr = offsets + poln * numchan;
+            if (poln <= numunsigned) {
+                unsigned char *inptr = inbuf + poln * numchan;
+                for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
+                    *outptr = *sptr * (float)(*inptr) + *optr;
+            } else {
+                signed char *inptr = (signed char *)(inbuf + poln * numchan);
+                for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
+                    *outptr = *sptr * (float)(*inptr) + *optr;
+            }
         }
     }
 }
 
 
-void scale_and_offset_data(struct psrfits *pf) {
+void scale_and_offset_data(struct psrfits *pf, int numunsigned) {
     // Make sure that pf->sub.fdata has been allocated!
     apply_scales_and_offsets(pf->hdr.nchan, pf->hdr.npol, pf->hdr.nsblk,
+                             numunsigned,
                              pf->sub.dat_scales, pf->sub.dat_offsets,
                              pf->sub.data, pf->sub.fdata);
 }
@@ -286,7 +294,8 @@ int psrfits_read_subint(struct psrfits *pf) {
  * routine.  Counters are _not_ updated as they are in
  * psrfits_read_subint().
  */
-int psrfits_read_part_DATA(struct psrfits *pf, int N, float *fbuffer) {
+int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned, 
+                           float *fbuffer) {
 
     struct hdrinfo *hdr = &(pf->hdr);
     int colnum = 0, *status = &(pf->status);
@@ -332,7 +341,7 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, float *fbuffer) {
     }
     
     // Now convert the 8-bit data to floats using the scales and offsets
-    apply_scales_and_offsets(hdr->nchan, hdr->npol, N,
+    apply_scales_and_offsets(hdr->nchan, hdr->npol, N, numunsigned,
                              scales, offsets, buffer, fbuffer);
     free(offsets);
     free(scales);
