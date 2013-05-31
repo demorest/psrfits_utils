@@ -142,19 +142,20 @@ void apply_scales_and_offsets(int numchan, int numpol, int numspect,
                               float *scales, float *offsets,
                               unsigned char *inbuf, float *outbuf)
 {
-    int ii, jj, poln;
+    int ii, jj, poln, N;
     float *outptr = outbuf;
 
+    N = numchan * numpol;
     for (ii = 0 ; ii < numspect ; ii++) {
         for (poln = 0 ; poln < numpol ; poln++) {
             float *sptr = scales + poln * numchan;
             float *optr = offsets + poln * numchan;
             if (poln <= numunsigned) {
-                unsigned char *inptr = inbuf + poln * numchan;
+                unsigned char *inptr = inbuf + ii * N + poln * numchan;
                 for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
                     *outptr = *sptr * (float)(*inptr) + *optr;
             } else {
-                signed char *inptr = (signed char *)(inbuf + poln * numchan);
+                signed char *inptr = (signed char *)(inbuf + ii * N + poln * numchan);
                 for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
                     *outptr = *sptr * (float)(*inptr) + *optr;
             }
