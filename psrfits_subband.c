@@ -28,7 +28,7 @@ struct subband_info {
     int max_early;
     int max_late;
     int max_overlap;
-    int buflen;  // Number of samples (in time) in a block
+    int buflen;  // Number of spectra in time in a block / row
     int bufwid;  // Number of channels times number of polns
     double dm;
     double sub_df;
@@ -293,10 +293,18 @@ void init_subbanding(struct psrfits *pfi,
     }
     si->chan_per_sub = si->nchan / si->nsub;
     si->bufwid = si->nchan * si->npol; // Freq * polns
-    si->buflen = pfi->hdr.nsblk;  // Time
+    si->buflen = pfi->hdr.nsblk;  // Number of spectra in each row
+    // Check the downsampling factor in time
+    if (si->buflen % cmd->dstime) {
+        fprintf(stderr,
+                "Error!:  %d spectra per row is not evenly divisible by -dstime of %d!\n",
+                si->buflen, cmd->dstime);
+        exit(1);
+    }
+    // Check the downsampling factor in frequency
     if (si->nchan % si->nsub) {
         fprintf(stderr, 
-                "Error!  %d channels is not evenly divisible by %d subbands!\n", 
+                "Error!  %d channels is not evenly divisible by %d subbands!\n",
                 si->nchan, si->nsub);
         exit(1);
     }
@@ -505,7 +513,7 @@ int main(int argc, char *argv[]) {
 
     // Read the user weights if requested
     si.userwgts = NULL;
-    if (cmd->wgtsfileP ) {
+    if (cmd->wgtsfileP) {
         read_weights(cmd->wgtsfile, &userN, &si.userwgts);
         if (userN != pfi.hdr.nchan) {
             printf("Error!:  Input data has %d channels, but '%s' contains only %d weights!\n",

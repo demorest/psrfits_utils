@@ -133,8 +133,8 @@ void downsample_time(struct psrfits *pf)
     
     // Iterate over the output times
     for (ii = 0 ; ii < out_nsblk ; ii++) {
-        chanoff1 = ii * out_nchan;
-        chanoff2 = chanoff1 * dsfact;
+        chanoff1 = ii * out_nchan;    // offset for output spectra
+        chanoff2 = chanoff1 * dsfact; // offset for input spectra
         outdata = data + chanoff1;
         // and over each channel
         for (jj = 0 ; jj < out_nchan ; jj++) {
