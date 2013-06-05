@@ -150,7 +150,7 @@ void apply_scales_and_offsets(int numchan, int numpol, int numspect,
         for (poln = 0 ; poln < numpol ; poln++) {
             float *sptr = scales + poln * numchan;
             float *optr = offsets + poln * numchan;
-            if (poln <= numunsigned) {
+            if (poln < numunsigned) {
                 unsigned char *inptr = inbuf + ii * N + poln * numchan;
                 for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
                     *outptr = *sptr * (float)(*inptr) + *optr;

@@ -113,27 +113,21 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
     int ii, jj, poln;
     float *inptr = pf->sub.fdata;
     unsigned char *outptr = pf->sub.data;
-    const int numspect = pf->hdr.nsblk;  // downsampling in time is later
+    const int numspect = pf->hdr.nsblk / pf->hdr.ds_time_fact;
     const int nchan = pf->hdr.nchan / pf->hdr.ds_freq_fact;
+    int out_npol = pf->hdr.npol;
+    if (pf->hdr.onlyI) out_npol = 1;
 
     for (ii = 0 ; ii < numspect ; ii++) {
-        for (poln = 0 ; poln < pf->hdr.npol ; poln++) {
+        for (poln = 0 ; poln < out_npol ; poln++) {
             float *sptr = pf->sub.dat_scales + poln * nchan;
             float *optr = pf->sub.dat_offsets + poln * nchan;
-            if (poln <= numunsigned) {
+            if (poln < numunsigned) {
                 for (jj = 0 ; jj < nchan ; jj++, sptr++, optr++, inptr++, outptr++) {
                     //printf("%d  %f  %f  %f\n", jj, *inptr, *sptr, *optr);
                     float ftmp = (*inptr - *optr) / *sptr + 0.5;
                     ftmp = (ftmp >= 255.0) ? 255.0 : ftmp;
                     ftmp = (ftmp < 0.0) ? 0.0 : ftmp;
-                    //if (ftmp >= 255.0) {
-                    //    printf("Clipping %d,%d,%d from %f to 255.0\n", ii, jj, poln, ftmp);
-                    //    ftmp = 255.0;
-                    //}
-                    //if (ftmp < 0.0) {
-                    //    printf("Clipping %d,%d,%d from %f to 0.0\n", ii, jj, poln, ftmp);
-                    //    ftmp = 0.0;
-                    //}
                     *outptr = (unsigned char) ftmp;
                 }
             } else {
@@ -142,14 +136,6 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
                     float ftmp = (*inptr - *optr) / *sptr + 0.5;
                     ftmp = (ftmp >= 128.0) ? 128.0 : ftmp;
                     ftmp = (ftmp < -127.0) ? -127 : ftmp;
-                    //if (ftmp >= 128.0) {
-                    //    printf("Clipping %d,%d,%d from %f to 128.0\n", ii, jj, poln, ftmp);
-                    //    ftmp = 128.0;
-                    //}
-                    //if (ftmp < -127.0) {
-                    //    printf("Clipping %d,%d,%d from %f to -127\n", ii, jj, poln, ftmp);
-                    //    ftmp = 127.0;
-                    //}
                     *outptr = (signed char) ftmp;
                 }
             }
@@ -225,8 +211,8 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
 
 
 /* Average adjacent frequency channels, including dispersion, together
- * to make de-dispersed subbands.  Note: this only works properly for
- * 8-bit data.  It works for all weights, scales, and offsets
+ * to make de-dispersed subbands.  It works for all weights, scales,
+ * and offsets.
  */
 void make_subbands(struct psrfits *pfi, struct subband_info *si) {
     int ii, jj, kk, ll;
@@ -242,21 +228,21 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
         inv_sqrtsumwgts[ii] = 0.0;
         for (jj = 0 ; jj < dsfact ; jj++, weights++)
             inv_sqrtsumwgts[ii] += *weights;
-        // Take reciprocal if sum is not zero
         // We only divide by sqrt(sum(wgts)) so that the result
         // is scaled larger by sqrt(sum(wgts)) than a weighted average.
         // That keeps the std-deviation of the bit-packed values constant
         // (we compensate using an output weight that is down by sqrt(sum(wgts))
+        // Take reciprocal if sum is not zero
         inv_sqrtsumwgts[ii] = inv_sqrtsumwgts[ii] ? \
             1.0 / sqrt(inv_sqrtsumwgts[ii]) : 0.0;
     }
 
     // Iterate over the times 
     for (ii = 0 ; ii < si->buflen ; ii++) {
-        int *idelays = si->idelays;
         // Iterate over the polarizations
         for (jj = 0 ; jj < si->npol ; jj++) {
             weights = pfi->sub.dat_weights;
+            int *idelays = si->idelays;
             float *norm = inv_sqrtsumwgts;
             // Iterate over the output channels
             for (kk = 0 ; kk < si->nsub ; kk++, norm++, outdata++) {
@@ -313,7 +299,7 @@ void init_subbanding(struct psrfits *pfi,
     si->sub_freqs = (float *)malloc(sizeof(float) * si->nsub);
     si->chan_delays = (double *)malloc(sizeof(double) * si->nchan);
     si->sub_delays = (double *)malloc(sizeof(double) * si->nsub);
-    si->idelays = (int *)malloc(sizeof(int) * si->nchan * si->npol);
+    si->idelays = (int *)malloc(sizeof(int) * si->nchan);
     si->weights = (float *)malloc(sizeof(float) * si->nsub);
     si->offsets = (float *)malloc(sizeof(float) * si->nsub * si->npol);
     si->scales = (float *)malloc(sizeof(float) * si->nsub * si->npol);
@@ -358,10 +344,6 @@ void init_subbanding(struct psrfits *pfi,
                                                     pfi->sub.dat_freqs[cindex]);
             si->chan_delays[cindex] -= si->sub_delays[ii];
             si->idelays[cindex] = (int)rint(si->chan_delays[cindex] / pfi->hdr.dt);
-            // Copy the delays if we have more than 1 poln
-            for (kk = 1 ; kk < si->npol ; kk++) {
-                si->idelays[cindex+kk*si->nchan] = si->idelays[cindex];
-            }
         }
     }
 
@@ -520,7 +502,8 @@ int main(int argc, char *argv[]) {
                    pfi.hdr.nchan, cmd->wgtsfile, userN);
             exit(0);
         }
-        printf("Overriding input channel weights with those in '%s'\n", cmd->wgtsfile);
+        printf("Overriding input channel weights with those in '%s'\n",
+               cmd->wgtsfile);
     }
 
     // Initialize the subbanding
@@ -537,21 +520,8 @@ int main(int argc, char *argv[]) {
         float *ptr = pfi.sub.fdata + si.buflen * si.bufwid;
         if (padding==0)
             stat = psrfits_read_part_DATA(&pfi, si.max_overlap, si.numunsigned, ptr);
-        if (0) {
-            int ii, jj;
-            for (jj=0;jj<pfi.hdr.npol;jj++) {
-                printf("%d  %d: ", jj, si.numunsigned);
-                for (ii=0;ii<10;ii++) {
-                    if (jj <= si.numunsigned)
-                        printf("%d ", pfi.sub.data[ii+jj*pfi.hdr.nchan]);
-                    else
-                        printf("%d ", *(signed char *)(pfi.sub.data+ii+jj*pfi.hdr.nchan));
-                }
-                printf("\n");
-            }
-        }
         if (stat || padding) { // Need to use padding since we ran out of data
-            printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+            printf("Adding a missing row (#%d) of padding to the subbands.\n",
                    pfi.tot_rows);
             // Now fill the last part of si->fbuffer with the chan_avgs so that
             // it acts like a correctly read block (or row)
@@ -563,16 +533,16 @@ int main(int argc, char *argv[]) {
         make_subbands(&pfi, &si);
         //get_sub_stats(&pfo, &si);
 
-        // Convert the floats back to bytes in the output array
-        un_scale_and_offset_data(&pfo, si.numunsigned);
-
-        // Output only Stokes I (in place via bytes)
+        // Output only Stokes I (in place via floats)
         if (pfo.hdr.onlyI && pfo.hdr.npol==4)
             get_stokes_I(&pfo);
 
-        // Downsample in time (in place via bytes)
+        // Downsample in time (in place via floats)
         if (pfo.hdr.ds_time_fact > 1)
             downsample_time(&pfo);
+
+        // Convert the floats back to bytes in the output array
+        un_scale_and_offset_data(&pfo, si.numunsigned);
 
         // Write the new row to the output file
         pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
