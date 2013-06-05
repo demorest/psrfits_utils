@@ -59,97 +59,70 @@ void pf_8bit_to_4bit(struct psrfits *pf)
 void get_stokes_I(struct psrfits *pf)
 /* Move the Stokes I in place so that it is consecutive in the array */
 {
-    int ii, inbytes, outbytes;
+    int ii;
+    float *data;
     struct hdrinfo *hdr = &(pf->hdr);
-    unsigned char *data = pf->sub.data;
     const int out_nchan = hdr->nchan / hdr->ds_freq_fact;
-
-    outbytes = hdr->nbits * out_nchan / 8;
-    inbytes = outbytes * 4;  // 4 Stokes params
 
     // In this mode, average the polns first to make it like IQUV
     if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0) {
-        unsigned char *bbptr;
-        int jj, itmp;
+        float *bbptr;
+        int jj;
         for (ii = 0 ; ii < hdr->nsblk ; ii++) {
-            data = pf->sub.data + ii * inbytes;
-            bbptr = data + outbytes;
-            for (jj = 0 ; jj < out_nchan ; jj++, data++, bbptr++) {
-                itmp = (*data + *bbptr) >> 1; // Average AA and BB polns
-                *data = itmp;
-            }
+            data = pf->sub.fdata + ii * out_nchan * 4; // 4 polns
+            bbptr = data + out_nchan;
+            for (jj = 0 ; jj < out_nchan ; jj++, data++, bbptr++)
+                *data = 0.5 * (*data + *bbptr); // Average AA and BB polns
         }
-        data = pf->sub.data;
     }
+    data = pf->sub.fdata;
     // Start from 1 since we don't need to move the 1st spectra
-    for (ii = 1 ; ii < hdr->nsblk ; ii++)
-        memcpy(data + ii * outbytes, data + ii * inbytes, outbytes);
-}
-
-void downsample_freq(struct psrfits *pf)
-/* Average adjacent frequency channels together in place    */
-/* Note:  this only works properly for 8-bit data currently */
-{
-    int ii, jj, itmp;
-    struct hdrinfo *hdr = &(pf->hdr);
-    char *indata = (char *)pf->sub.data;
-    char *outdata = (char *)pf->sub.data;
-    const int dsfact = hdr->ds_freq_fact;
-    const int offset = dsfact / 2;
-
-    // Treat the polns as being parts of the same spectrum
-    int out_npol = hdr->npol;
-    if (hdr->onlyI) out_npol = 1;
-    const int out_nchan = hdr->nchan * out_npol / hdr->ds_freq_fact;
-    
-    // Iterate over the times and output chans
-    for (ii = 0 ; ii < hdr->nsblk * out_nchan ; ii++) {
-        // and over adjacent input chans for each time
-        for (jj = 0, itmp = offset ; jj < dsfact ; jj++)
-            itmp += *indata++;
-        // The following is 1/2 of dsfact (offset) plus the total (which 
-        // allows for rounding-type behavior) and then divided by dsfact.
-        *outdata++ = itmp / dsfact;
+    for (ii = 1 ; ii < hdr->nsblk ; ii++) {
+        memcpy(data + ii * out_nchan, 
+               data + ii * 4 * out_nchan, 
+               out_nchan * sizeof(float));
     }
 }
+
 
 void downsample_time(struct psrfits *pf)
 /* Average adjacent time samples together in place */
-/* This should be called _after_ downsample_freq() */
-/* Note:  this only works properly for 8-bit data currently */
+/* This should be called _after_ make_subbands()   */
 {
-    int ii, jj, kk, itmp, chanoff1, chanoff2;
+    int ii, jj, kk;
     struct hdrinfo *hdr = &(pf->hdr);
-    char *data = (char *)pf->sub.data;
-    char *indata, *outdata;
+    float *data = pf->sub.fdata;
+    float *indata, *outdata, *tmpspec;
     const int dsfact = hdr->ds_time_fact;
-    const int offset = dsfact / 2;
-
     // Treat the polns as being parts of the same spectrum
     int out_npol = hdr->npol;
     if (hdr->onlyI) out_npol = 1;
-    const int out_nchan = hdr->nchan * out_npol / hdr->ds_freq_fact;
+    const int in_nchan = hdr->nchan * out_npol;
+    const int out_nchan = in_nchan / hdr->ds_freq_fact;
     const int out_nsblk = hdr->nsblk / dsfact;
-    
+    const float norm = 1.0 / dsfact;
+
+    tmpspec = (float *)malloc(out_nchan * sizeof(float));
+    indata = data;
     // Iterate over the output times
     for (ii = 0 ; ii < out_nsblk ; ii++) {
-        chanoff1 = ii * out_nchan;    // offset for output spectra
-        chanoff2 = chanoff1 * dsfact; // offset for input spectra
-        outdata = data + chanoff1;
-        // and over each channel
-        for (jj = 0 ; jj < out_nchan ; jj++) {
-            indata = data + chanoff2 + jj;
-            // to add the adjacent times
-            for (kk = 0, itmp = offset ; kk < dsfact ; kk++) {
-                itmp += *indata;
-                indata += out_nchan;
-            }
-            // The following is 1/2 of dsfact (offset) plus the total (which 
-            // allows for rounding-type behavior) and then divided by dsfact.
-            *outdata++ = itmp / dsfact;
+        // Initiaize the summation
+        for (jj = 0 ; jj < out_nchan ; jj++) 
+            tmpspec[jj] = 0.0;
+        // Add up the samples in time in the tmp array
+        for (jj = 0 ; jj < dsfact ; jj++) {
+            outdata = tmpspec;
+            for (kk = 0 ; kk < out_nchan ; kk++, indata++, outdata++)
+                *outdata += *indata;
         }
+        // Convert the sum to an average and put into the output array
+        outdata = data + ii * out_nchan;
+        for (jj = 0 ; jj < out_nchan ; jj++)
+            outdata[jj] = tmpspec[jj] * norm;
     }
+    free(tmpspec);
 }
+
 
 void guppi_update_ds_params(struct psrfits *pf)
 /* Update the various output data arrays / values so that */
