@@ -17,7 +17,6 @@ extern void avg_std(float *x, int n, double *mean, double *std, int stride);
 extern void split_path_file(char *input, char **path, char **file);
 extern void get_stokes_I(struct psrfits *pf);
 extern void downsample_time(struct psrfits *pf);
-extern void make_weighted_datamods(struct psrfits *inpf, struct psrfits *outpf);
 
 struct subband_info {
     int nsub;
@@ -68,6 +67,23 @@ static void print_percent_complete(int current, int number, int reset)
    }
 }
 
+void print_raw_chan_stats(unsigned char *data, int nspect, int nchan, int npol){
+    int ii, jj;
+    double avg, std;
+    float *tmparr;
+
+    tmparr = (float *)malloc(sizeof(float) * nspect);
+    for (ii = 0 ; ii < nchan ; ii++) {
+        // Grab the raw data
+        for (jj = 0 ; jj < nspect ; jj++)
+            tmparr[jj] = (float)data[npol * nchan * jj + ii];
+        avg_std(tmparr, nspect, &avg, &std, 1);
+        printf("%4d: %10.3f %10.3f\n", ii, avg, std);
+    }
+    free(tmparr);
+}
+
+
 void get_chan_stats(struct psrfits *pfi, struct subband_info *si){   
     int ii;
     double avg, std;
@@ -82,13 +98,43 @@ void get_chan_stats(struct psrfits *pfi, struct subband_info *si){
 }
 
 
-void get_sub_stats(struct psrfits *pfo, struct subband_info *si) {
-    int ii, stride = si->bufwid / si->chan_per_sub;
+void new_scales_and_offsets(struct psrfits *pfo, int numunsigned) {
+    int ii, poln;
     double avg, std;
+    const int nspec = pfo->hdr.nsblk / pfo->hdr.ds_time_fact;
+    const int nchan = pfo->hdr.nchan / pfo->hdr.ds_freq_fact;
+    const int npoln = (pfo->hdr.onlyI) ? 1 : pfo->hdr.npol;
+    const int bufwid = npoln * nchan;
+    const float target_std = 20.0;  // This is reasonable for 8-bit data
 
-    for (ii = 0 ; ii < stride ; ii++) {
-        avg_std(pfo->sub.fdata + ii, si->buflen, &avg, &std, stride);
-        //printf("%d %f %f\n", ii, avg, std);
+    for (poln = 0 ; poln < npoln ; poln++) {
+        float target_avg = (poln < numunsigned) ? 128.0 : 0.0;
+        float *out_scls = pfo->sub.dat_scales + poln * nchan;
+        float *out_offs = pfo->sub.dat_offsets + poln * nchan;
+        for (ii = 0 ; ii < nchan ; ii++) {
+            float *fptr = pfo->sub.fdata + poln * nchan + ii;
+            avg_std(fptr, nspec, &avg, &std, bufwid);
+            out_scls[ii] = std / target_std;
+            out_offs[ii] = avg - (target_avg * out_scls[ii]);
+        }
+    }
+}
+
+
+void new_weights(struct psrfits *inpf, struct psrfits *outpf)
+{
+    int ii, jj;
+    const int out_nchan = inpf->hdr.nchan / outpf->hdr.ds_freq_fact;
+    const int N = outpf->hdr.ds_freq_fact;
+    float *outwgts = outpf->sub.dat_weights;
+
+    for (ii = 0 ; ii < out_nchan ; ii++) {
+        float *inwgts = inpf->sub.dat_weights + ii * N;
+        float sumwgt = 0.0;
+        for (jj = 0 ; jj < N ; jj++, inwgts++)
+            sumwgt += *inwgts;
+        // avoid divide by zeros if weights are all zero
+        outwgts[ii] = (sumwgt) ? sumwgt / N : 0.0;
     }
 }
 
@@ -113,13 +159,12 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
     int ii, jj, poln;
     float *inptr = pf->sub.fdata;
     unsigned char *outptr = pf->sub.data;
-    const int numspect = pf->hdr.nsblk / pf->hdr.ds_time_fact;
+    const int nspec = pf->hdr.nsblk / pf->hdr.ds_time_fact;
     const int nchan = pf->hdr.nchan / pf->hdr.ds_freq_fact;
-    int out_npol = pf->hdr.npol;
-    if (pf->hdr.onlyI) out_npol = 1;
+    const int npoln = (pf->hdr.onlyI) ? 1 : pf->hdr.npol;
 
-    for (ii = 0 ; ii < numspect ; ii++) {
-        for (poln = 0 ; poln < out_npol ; poln++) {
+    for (ii = 0 ; ii < nspec ; ii++) {
+        for (poln = 0 ; poln < npoln ; poln++) {
             float *sptr = pf->sub.dat_scales + poln * nchan;
             float *optr = pf->sub.dat_offsets + poln * nchan;
             if (poln < numunsigned) {
@@ -222,19 +267,14 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
     const int dsfact = si->chan_per_sub;
     const int in_bufwid = si->bufwid;
 
-    // Compute the sumwgts vector
-    float *inv_sqrtsumwgts = (float *)malloc(sizeof(float) * si->nsub);
+    // Compute the inv_sumwgts vector for normalizing
+    float *inv_sumwgts = (float *)malloc(sizeof(float) * si->nsub);
     for (ii = 0 ; ii < si->nsub ; ii++) {
-        inv_sqrtsumwgts[ii] = 0.0;
+        float sumwgts = 0.0;
         for (jj = 0 ; jj < dsfact ; jj++, weights++)
-            inv_sqrtsumwgts[ii] += *weights;
-        // We only divide by sqrt(sum(wgts)) so that the result
-        // is scaled larger by sqrt(sum(wgts)) than a weighted average.
-        // That keeps the std-deviation of the bit-packed values constant
-        // (we compensate using an output weight that is down by sqrt(sum(wgts))
+            sumwgts += *weights;
         // Take reciprocal if sum is not zero
-        inv_sqrtsumwgts[ii] = inv_sqrtsumwgts[ii] ? \
-            1.0 / sqrt(inv_sqrtsumwgts[ii]) : 0.0;
+        inv_sumwgts[ii] = (sumwgts) ? 1.0 / sumwgts : 0.0;
     }
 
     // Iterate over the times 
@@ -243,7 +283,7 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
         for (jj = 0 ; jj < si->npol ; jj++) {
             weights = pfi->sub.dat_weights;
             int *idelays = si->idelays;
-            float *norm = inv_sqrtsumwgts;
+            float *norm = inv_sumwgts;
             // Iterate over the output channels
             for (kk = 0 ; kk < si->nsub ; kk++, norm++, outdata++) {
                 // Iterate over the input channels
@@ -256,7 +296,7 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
             }
         }
     }
-    free(inv_sqrtsumwgts);
+    free(inv_sumwgts);
 }
 
 
@@ -421,8 +461,8 @@ void init_subbanding(struct psrfits *pfi,
     // Now re-read the first row (i.e. for "real" this time)
     get_current_row(pfi, si);
 
-    // Set the weights, offsets and scales properly
-    make_weighted_datamods(pfi, pfo);
+    // Set the new weights properly
+    new_weights(pfi, pfo);
 
     // Now fill the first part of si->fbuffer with the chan_avgs so that
     // it acts like a previously read block (or row)
@@ -528,10 +568,11 @@ int main(int argc, char *argv[]) {
             fill_chans_with_avgs(si.max_overlap, si.bufwid,
                                  ptr, si.chan_avgs);
         }
+        //print_raw_chan_stats(pfi.sub.data, pfi.hdr.nsblk, 
+        //                     pfi.hdr.nchan, pfi.hdr.npol);
 
         // Now create the subbanded row in the output buffer
         make_subbands(&pfi, &si);
-        //get_sub_stats(&pfo, &si);
 
         // Output only Stokes I (in place via floats)
         if (pfo.hdr.onlyI && pfo.hdr.npol==4)
@@ -541,8 +582,14 @@ int main(int argc, char *argv[]) {
         if (pfo.hdr.ds_time_fact > 1)
             downsample_time(&pfo);
 
+        // Compute new scales and offsets so that we can pack
+        // into 8-bits reliably
+        new_scales_and_offsets(&pfo, si.numunsigned);
+
         // Convert the floats back to bytes in the output array
         un_scale_and_offset_data(&pfo, si.numunsigned);
+        //print_raw_chan_stats(pfo.sub.data, pfo.hdr.nsblk / pfo.hdr.ds_time_fact,  
+        //                     pfo.hdr.nchan / pfo.hdr.ds_freq_fact, pfo.hdr.npol);
 
         // Write the new row to the output file
         pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
@@ -559,8 +606,8 @@ int main(int argc, char *argv[]) {
         // Read the next row (or padding)
         padding = get_current_row(&pfi, &si);
 
-        // Set the weights, offsets and scales properly
-        make_weighted_datamods(&pfi, &pfo);
+        // Set the new weights properly
+        new_weights(&pfi, &pfo);
 
     } while (pfi.status == 0);
 
