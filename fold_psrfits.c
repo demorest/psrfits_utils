@@ -491,15 +491,17 @@ int main(int argc, char *argv[]) {
                 for (i=0; i<npc; i++) pc_written[i]=0;
             }
 
-            /* Write the current polyco if needed */
-            if (pc_written[ipc]==0) {
-                psrfits_write_polycos(&pf_out, &pc[ipc], 1);
-                if (pf_out.status) {
-                    fprintf(stderr, "Error writing polycos.\n");
-                    fits_report_error(stderr, pf_out.status);
-                    exit(1);
+            // Write the current and previous polycos, if needed
+            for (i=0; i<=ipc; i++) {
+                if (pc_written[i]==0) {
+                    psrfits_write_polycos(&pf_out, &pc[i], 1);
+                    if (pf_out.status) {
+                        fprintf(stderr, "Error writing polycos.\n");
+                        fits_report_error(stderr, pf_out.status);
+                        exit(1);
+                    }
+                    pc_written[i] = 1;
                 }
-                pc_written[ipc] = 1;
             }
 
             /* Clear counters, avgs */
