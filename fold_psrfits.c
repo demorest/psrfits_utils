@@ -346,6 +346,7 @@ int main(int argc, char *argv[]) {
 
         /* Read data block */
         pf.sub.data = (unsigned char *)fargs[cur_thread].data;
+        pf.sub.rawdata = pf.sub.data;
         rv = psrfits_read_subint(&pf);
         if (rv) { 
             if (rv==FILE_NOT_OPENED) rv=0; // Don't complain on file not found
