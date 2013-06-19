@@ -239,7 +239,8 @@ int main(int argc, char *argv[])
     pf.sub.dat_scales  = (float *)malloc(sizeof(float) * 
                                          pf.hdr.nchan * pf.hdr.npol);
     pf.sub.data = (unsigned char *)malloc(pf.sub.bytes_per_subint);
-
+    pf.sub.rawdata = pf.sub.data; 
+    
     // Counts and offsets for MPI_Gatherv
     counts = (int *)malloc(sizeof(int) * numprocs);
     offsets = (int *)malloc(sizeof(int) * numprocs);
