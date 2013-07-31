@@ -15,49 +15,13 @@
 #include <float.h>
 #include <math.h>
 
-#include "psrfits_subband_cmd.h"
+#include "combine_mocks_cmd.h"
 
 char *Program;
 
 /*@-null*/
 
 static Cmdline cmd = {
-  /***** -dm: Dispersion measure to use for the subband de-dispersion */
-  /* dmP = */ 1,
-  /* dm = */ 0.0,
-  /* dmC = */ 1,
-  /***** -nsub: Number of output frequency subbands */
-  /* nsubP = */ 0,
-  /* nsub = */ (int)0,
-  /* nsubC = */ 0,
-  /***** -dstime: Power-of-2 number of samples to average in time */
-  /* dstimeP = */ 1,
-  /* dstime = */ 1,
-  /* dstimeC = */ 1,
-  /***** -startfile: Starting file number of sequence */
-  /* startfileP = */ 1,
-  /* startfile = */ 1,
-  /* startfileC = */ 1,
-  /***** -numfiles: Number of files to process */
-  /* numfilesP = */ 0,
-  /* numfiles = */ (int)0,
-  /* numfilesC = */ 0,
-  /***** -filetime: Desired length of the resulting files in sec */
-  /* filetimeP = */ 0,
-  /* filetime = */ (float)0,
-  /* filetimeC = */ 0,
-  /***** -filelen: Desired length of the resulting files in GB */
-  /* filelenP = */ 0,
-  /* filelen = */ (float)0,
-  /* filelenC = */ 0,
-  /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
-  /* bytesP = */ 0,
-  /***** -onlyI: Only output total intensity data */
-  /* onlyIP = */ 0,
-  /***** -weights: Filename containing ASCII list of channels and weights to use */
-  /* wgtsfileP = */ 0,
-  /* wgtsfile = */ (char*)0,
-  /* wgtsfileC = */ 0,
   /***** -o: Basename for the output files */
   /* outputbasenameP = */ 0,
   /* outputbasename = */ (char*)0,
@@ -761,36 +725,15 @@ catArgv(int argc, char **argv)
 void
 usage(void)
 {
-  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-startfile startfile] [-numfiles numfiles] [-filetime filetime] [-filelen filelen] [-bytes] [-onlyI] [-weights wgtsfile] [-o outputbasename] [--] infile ...\n");
+  fprintf(stderr,"%s","   [-o outputbasename] [--] infile ...\n");
   fprintf(stderr,"%s","      \n");
-  fprintf(stderr,"%s","      Partially de-disperse and subband PSRFITS search-mode data.\n");
+  fprintf(stderr,"%s","      Combine two frequency bands of Mock spectrometer data.\n");
   fprintf(stderr,"%s","      \n");
-  fprintf(stderr,"%s","           -dm: Dispersion measure to use for the subband de-dispersion\n");
-  fprintf(stderr,"%s","                1 double value between 0.0 and 10000.0\n");
-  fprintf(stderr,"%s","                default: `0.0'\n");
-  fprintf(stderr,"%s","         -nsub: Number of output frequency subbands\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 4096\n");
-  fprintf(stderr,"%s","       -dstime: Power-of-2 number of samples to average in time\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 128\n");
-  fprintf(stderr,"%s","                default: `1'\n");
-  fprintf(stderr,"%s","    -startfile: Starting file number of sequence\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
-  fprintf(stderr,"%s","                default: `1'\n");
-  fprintf(stderr,"%s","     -numfiles: Number of files to process\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
-  fprintf(stderr,"%s","     -filetime: Desired length of the resulting files in sec\n");
-  fprintf(stderr,"%s","                1 float value between 0.0 and 100000.0\n");
-  fprintf(stderr,"%s","      -filelen: Desired length of the resulting files in GB\n");
-  fprintf(stderr,"%s","                1 float value between 0.0 and 1000.0\n");
-  fprintf(stderr,"%s","        -bytes: Make the raw data unsigned chars instead of signed shorts\n");
-  fprintf(stderr,"%s","        -onlyI: Only output total intensity data\n");
-  fprintf(stderr,"%s","      -weights: Filename containing ASCII list of channels and weights to use\n");
-  fprintf(stderr,"%s","                1 char* value\n");
-  fprintf(stderr,"%s","            -o: Basename for the output files\n");
-  fprintf(stderr,"%s","                1 char* value\n");
-  fprintf(stderr,"%s","        infile: Input file name(s) of the PSRFITs datafiles\n");
-  fprintf(stderr,"%s","                1...2000 values\n");
-  fprintf(stderr,"%s","  version: 04Mar11\n");
+  fprintf(stderr,"%s","        -o: Basename for the output files\n");
+  fprintf(stderr,"%s","            1 char* value\n");
+  fprintf(stderr,"%s","    infile: Input file name(s) of the PSRFITs datafiles\n");
+  fprintf(stderr,"%s","            1...2000 values\n");
+  fprintf(stderr,"%s","  version: 14Feb11\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -805,94 +748,6 @@ parseCmdline(int argc, char **argv)
   for(i=1, cmd.argc=1; i<argc; i++) {
     if( 0==strcmp("--", argv[i]) ) {
       while( ++i<argc ) argv[cmd.argc++] = argv[i];
-      continue;
-    }
-
-    if( 0==strcmp("-dm", argv[i]) ) {
-      int keep = i;
-      cmd.dmP = 1;
-      i = getDoubleOpt(argc, argv, i, &cmd.dm, 1);
-      cmd.dmC = i-keep;
-      checkDoubleLower("-dm", &cmd.dm, cmd.dmC, 10000.0);
-      checkDoubleHigher("-dm", &cmd.dm, cmd.dmC, 0.0);
-      continue;
-    }
-
-    if( 0==strcmp("-nsub", argv[i]) ) {
-      int keep = i;
-      cmd.nsubP = 1;
-      i = getIntOpt(argc, argv, i, &cmd.nsub, 1);
-      cmd.nsubC = i-keep;
-      checkIntLower("-nsub", &cmd.nsub, cmd.nsubC, 4096);
-      checkIntHigher("-nsub", &cmd.nsub, cmd.nsubC, 1);
-      continue;
-    }
-
-    if( 0==strcmp("-dstime", argv[i]) ) {
-      int keep = i;
-      cmd.dstimeP = 1;
-      i = getIntOpt(argc, argv, i, &cmd.dstime, 1);
-      cmd.dstimeC = i-keep;
-      checkIntLower("-dstime", &cmd.dstime, cmd.dstimeC, 128);
-      checkIntHigher("-dstime", &cmd.dstime, cmd.dstimeC, 1);
-      continue;
-    }
-
-    if( 0==strcmp("-startfile", argv[i]) ) {
-      int keep = i;
-      cmd.startfileP = 1;
-      i = getIntOpt(argc, argv, i, &cmd.startfile, 1);
-      cmd.startfileC = i-keep;
-      checkIntLower("-startfile", &cmd.startfile, cmd.startfileC, 2000);
-      checkIntHigher("-startfile", &cmd.startfile, cmd.startfileC, 1);
-      continue;
-    }
-
-    if( 0==strcmp("-numfiles", argv[i]) ) {
-      int keep = i;
-      cmd.numfilesP = 1;
-      i = getIntOpt(argc, argv, i, &cmd.numfiles, 1);
-      cmd.numfilesC = i-keep;
-      checkIntLower("-numfiles", &cmd.numfiles, cmd.numfilesC, 2000);
-      checkIntHigher("-numfiles", &cmd.numfiles, cmd.numfilesC, 1);
-      continue;
-    }
-
-    if( 0==strcmp("-filetime", argv[i]) ) {
-      int keep = i;
-      cmd.filetimeP = 1;
-      i = getFloatOpt(argc, argv, i, &cmd.filetime, 1);
-      cmd.filetimeC = i-keep;
-      checkFloatLower("-filetime", &cmd.filetime, cmd.filetimeC, 100000.0);
-      checkFloatHigher("-filetime", &cmd.filetime, cmd.filetimeC, 0.0);
-      continue;
-    }
-
-    if( 0==strcmp("-filelen", argv[i]) ) {
-      int keep = i;
-      cmd.filelenP = 1;
-      i = getFloatOpt(argc, argv, i, &cmd.filelen, 1);
-      cmd.filelenC = i-keep;
-      checkFloatLower("-filelen", &cmd.filelen, cmd.filelenC, 1000.0);
-      checkFloatHigher("-filelen", &cmd.filelen, cmd.filelenC, 0.0);
-      continue;
-    }
-
-    if( 0==strcmp("-bytes", argv[i]) ) {
-      cmd.bytesP = 1;
-      continue;
-    }
-
-    if( 0==strcmp("-onlyI", argv[i]) ) {
-      cmd.onlyIP = 1;
-      continue;
-    }
-
-    if( 0==strcmp("-weights", argv[i]) ) {
-      int keep = i;
-      cmd.wgtsfileP = 1;
-      i = getStringOpt(argc, argv, i, &cmd.wgtsfile, 1);
-      cmd.wgtsfileC = i-keep;
       continue;
     }
 

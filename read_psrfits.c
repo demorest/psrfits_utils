@@ -136,6 +136,43 @@ int psrfits_open(struct psrfits *pf) {
     return *status;
 }
 
+
+void apply_scales_and_offsets(int numchan, int numpol, int numspect,
+                              int numunsigned, 
+                              float *scales, float *offsets,
+                              unsigned char *inbuf, float *outbuf)
+{
+    int ii, jj, poln, N;
+    float *outptr = outbuf;
+
+    N = numchan * numpol;
+    for (ii = 0 ; ii < numspect ; ii++) {
+        for (poln = 0 ; poln < numpol ; poln++) {
+            float *sptr = scales + poln * numchan;
+            float *optr = offsets + poln * numchan;
+            if (poln < numunsigned) {
+                unsigned char *inptr = inbuf + ii * N + poln * numchan;
+                for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
+                    *outptr = *sptr * (float)(*inptr) + *optr;
+            } else {
+                signed char *inptr = (signed char *)(inbuf + ii * N + poln * numchan);
+                for (jj = 0 ; jj < numchan ; jj++, sptr++, optr++, inptr++, outptr++)
+                    *outptr = *sptr * (float)(*inptr) + *optr;
+            }
+        }
+    }
+}
+
+
+void scale_and_offset_data(struct psrfits *pf, int numunsigned) {
+    // Make sure that pf->sub.fdata has been allocated!
+    apply_scales_and_offsets(pf->hdr.nchan, pf->hdr.npol, pf->hdr.nsblk,
+                             numunsigned,
+                             pf->sub.dat_scales, pf->sub.dat_offsets,
+                             pf->sub.data, pf->sub.fdata);
+}
+
+
 /* Read next subint from the set of files described
  * by the psrfits struct.  It is assumed that all files
  * form a consistent set.  Read automatically goes to the
@@ -146,7 +183,7 @@ int psrfits_read_subint(struct psrfits *pf) {
 
     struct hdrinfo *hdr = &(pf->hdr);
     struct subint  *sub = &(pf->sub);
-    int *status = &(pf->status);
+    int colnum = 0, *status = &(pf->status);
 
     // See if we need to move to next file
     if (pf->rownum > pf->rows_per_file) {
@@ -168,10 +205,12 @@ int psrfits_read_subint(struct psrfits *pf) {
     int row = pf->rownum;
 
     // TODO: bad! really need to base this on column names
-    fits_read_col(pf->fptr, TDOUBLE, 1, row, 1, 1, NULL, &(sub->tsubint), 
+    fits_get_colnum(pf->fptr, 0, "TSUBINT", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tsubint),
             NULL, status);
     double last_offs = sub->offs;
-    fits_read_col(pf->fptr, TDOUBLE, 2, row, 1, 1, NULL, &(sub->offs), 
+    fits_get_colnum(pf->fptr, 0, "OFFS_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->offs),
             NULL, status);
     // Hack to fix wrapping in coherent data
     if (pf->tot_rows > 0) {
@@ -182,40 +221,57 @@ int psrfits_read_subint(struct psrfits *pf) {
 	    fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
         }
     }
-    fits_read_col(pf->fptr, TDOUBLE, 3, row, 1, 1, NULL, &(sub->lst), 
+    fits_get_colnum(pf->fptr, 0, "LST_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 4, row, 1, 1, NULL, &(sub->ra), 
+    fits_get_colnum(pf->fptr, 0, "RA_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 5, row, 1, 1, NULL, &(sub->dec), 
+    fits_get_colnum(pf->fptr, 0, "DEC_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 6, row, 1, 1, NULL, &(sub->glon), 
+    fits_get_colnum(pf->fptr, 0, "GLON_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 7, row, 1, 1, NULL, &(sub->glat), 
+    fits_get_colnum(pf->fptr, 0, "GLAT_SUB", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 8, row, 1, 1, NULL, &(sub->feed_ang), 
+    fits_get_colnum(pf->fptr, 0, "FD_ANG", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 9, row, 1, 1, NULL, &(sub->pos_ang), 
+    fits_get_colnum(pf->fptr, 0, "POS_ANG", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 10, row, 1, 1, NULL, &(sub->par_ang), 
+    fits_get_colnum(pf->fptr, 0, "PAR_ANG", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 11, row, 1, 1, NULL, &(sub->tel_az), 
+    fits_get_colnum(pf->fptr, 0, "TEL_AZ", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
             NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, 12, row, 1, 1, NULL, &(sub->tel_zen), 
+    fits_get_colnum(pf->fptr, 0, "TEL_ZEN", &colnum, status);
+    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
             NULL, status);
-    fits_read_col(pf->fptr, TFLOAT, 13, row, 1, nchan, NULL, sub->dat_freqs,
+    fits_get_colnum(pf->fptr, 0, "DAT_FREQ", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nchan, NULL, sub->dat_freqs,
             NULL, status);
-    fits_read_col(pf->fptr, TFLOAT, 14, row, 1, nchan, NULL, sub->dat_weights,
+    fits_get_colnum(pf->fptr, 0, "DAT_WTS", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nchan, NULL, sub->dat_weights,
             NULL, status);
-    fits_read_col(pf->fptr, TFLOAT, 15, row, 1, nivals, NULL, sub->dat_offsets,
+    fits_get_colnum(pf->fptr, 0, "DAT_OFFS", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nivals, NULL, sub->dat_offsets,
             NULL, status);
-    fits_read_col(pf->fptr, TFLOAT, 16, row, 1, nivals, NULL, sub->dat_scales,
+    fits_get_colnum(pf->fptr, 0, "DAT_SCL", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nivals, NULL, sub->dat_scales,
             NULL, status);
-    if (mode==SEARCH_MODE)
-        fits_read_col(pf->fptr, TBYTE, 17, row, 1, sub->bytes_per_subint,
-                NULL, sub->data, NULL, status);
-    else if (mode==FOLD_MODE)
-        fits_read_col(pf->fptr, TFLOAT, 17, row, 1, sub->bytes_per_subint,
-                NULL, sub->data, NULL, status);
+    fits_get_colnum(pf->fptr, 0, "DATA", &colnum, status);
+    if (mode==SEARCH_MODE) {
+        fits_read_col(pf->fptr, TBYTE, colnum, row, 1, sub->bytes_per_subint,
+                      NULL, sub->rawdata, NULL, status);
+        if (hdr->nbits==4) pf_4bit_to_8bit(pf);
+    } else if (mode==FOLD_MODE) {
+        fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, sub->bytes_per_subint,
+                      NULL, sub->data, NULL, status);
+    }
 
     // Complain on error
     fits_report_error(stderr, *status);
@@ -239,33 +295,61 @@ int psrfits_read_subint(struct psrfits *pf) {
  * routine.  Counters are _not_ updated as they are in
  * psrfits_read_subint().
  */
-int psrfits_read_part_DATA(struct psrfits *pf, int N, char *buffer) {
+int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned, 
+                           float *fbuffer) {
 
     struct hdrinfo *hdr = &(pf->hdr);
-    int status=0;
+    int colnum = 0, *status = &(pf->status);
 
     // See if we need to move to next file
     if (pf->rownum > pf->rows_per_file) {
         printf("Closing file '%s'\n", pf->filename);
-        fits_close_file(pf->fptr, &(pf->status));
+        fits_close_file(pf->fptr, status);
         pf->filenum++;
         psrfits_open(pf);
-        if (pf->status==104) {
+        if (*status==104) {
             printf("Finished with all input files.\n");
             pf->filenum--;
-            pf->status = 1;
-            return pf->status;
+            *status = 1;
+            return *status;
         }
     }
 
-    int bytes_to_read = (hdr->nbits * hdr->nchan * hdr->npol * N) / 8;
+    int nivals = hdr->nchan * hdr->npol;
+    long long numdata = (long long) nivals * (long long) N;
+    long long bytes_to_read = (hdr->nbits * numdata) / 8L;
+    float *offsets = (float *)malloc(sizeof(float) * nivals);
+    float *scales = (float *)malloc(sizeof(float) * nivals);
+    unsigned char *buffer = (unsigned char *)malloc(numdata);
+    unsigned char *rawbuffer = buffer;
+    if (hdr->nbits==4) {
+        rawbuffer = (unsigned char *)malloc(bytes_to_read);
+    }
 
-    // TODO: bad! really need to base this on column names
-    fits_read_col(pf->fptr, TBYTE, 17, pf->rownum, 1, bytes_to_read,
-                  NULL, buffer, NULL, &status);
+    // Now read the data
+    fits_get_colnum(pf->fptr, 0, "DAT_OFFS", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, pf->rownum, 1, nivals,
+                  NULL, offsets, NULL, status);
+    fits_get_colnum(pf->fptr, 0, "DAT_SCL", &colnum, status);
+    fits_read_col(pf->fptr, TFLOAT, colnum, pf->rownum, 1, nivals,
+                  NULL, scales, NULL, status);
+    fits_get_colnum(pf->fptr, 0, "DATA", &colnum, status);
+    fits_read_col(pf->fptr, TBYTE, colnum, pf->rownum, 1, bytes_to_read,
+                  NULL, rawbuffer, NULL, status);
+    if (hdr->nbits==4) {
+        convert_4bit_to_8bit(rawbuffer, (unsigned char *)buffer, numdata);
+        free(rawbuffer);
+    }
     
+    // Now convert the 8-bit data to floats using the scales and offsets
+    apply_scales_and_offsets(hdr->nchan, hdr->npol, N, numunsigned,
+                             scales, offsets, buffer, fbuffer);
+    free(offsets);
+    free(scales);
+    free(buffer);
+
     // Complain on error
-    fits_report_error(stderr, status);
+    fits_report_error(stderr, *status);
     
-    return status;
+    return *status;
 }
