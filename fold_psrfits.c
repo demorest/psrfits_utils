@@ -159,12 +159,12 @@ int main(int argc, char *argv[]) {
     int rv = psrfits_open(&pf);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
-    /* Check any constraints */
-    if (pf.hdr.nbits!=8) { 
-        fprintf(stderr, "Only implemented for 8-bit data (read nbits=%d).\n",
-                pf.hdr.nbits);
-        exit(1);
-    }
+//    /* Check any constraints */
+//    if (pf.hdr.nbits!=8) { 
+//        fprintf(stderr, "Only implemented for 8-bit data (read nbits=%d).\n",
+//                pf.hdr.nbits);
+//        exit(1);
+//    }
 
     /* Check for calfreq */
     if (cal) {
@@ -317,7 +317,10 @@ int main(int argc, char *argv[]) {
     fargs = (struct fold_args *)malloc(sizeof(struct fold_args) * nthread);
     for (i=0; i<nthread; i++) { 
         thread_id[i] = 0; 
-        fargs[i].data = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint);
+        // If PSRFITS file's raw samples are 8-bits each 
+        // pf.sub.bytes_per_subint will be too small to hold 8-bit samples
+        // So make data array large enough to hold 8-bit samples
+        fargs[i].data = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint*(8/pf.hdr.nbits));
         fargs[i].fb = (struct foldbuf *)malloc(sizeof(struct foldbuf));
         fargs[i].fb->nbin = pf_out.hdr.nbin;
         fargs[i].fb->nchan = pf.hdr.nchan;
@@ -346,7 +349,12 @@ int main(int argc, char *argv[]) {
 
         /* Read data block */
         pf.sub.data = (unsigned char *)fargs[cur_thread].data;
-        pf.sub.rawdata = pf.sub.data;
+        if (pf.hdr.nbits == 8) {
+            // 8-bit raw data. No need for conversion
+            pf.sub.rawdata = pf.sub.data;
+        } else {
+            pf.sub.rawdata = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint);
+        }
         rv = psrfits_read_subint(&pf);
         if (rv) { 
             if (rv==FILE_NOT_OPENED) rv=0; // Don't complain on file not found
