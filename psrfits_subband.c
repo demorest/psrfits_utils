@@ -526,10 +526,10 @@ int main(int argc, char *argv[]) {
     cmd = parseCmdline(argc, argv);
 
     // Open the input PSRFITs files
+    psrfits_set_files(&pfi, cmd->argc, cmd->argv);
+    // Use the dynamic filename allocation
+    if (pfi.numfiles==0) pfi.filenum = cmd->startfile;
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
-    pfi.filenum = cmd->startfile;
-    pfi.filename[0] = '\0';
-    strncpy(pfi.basefilename, cmd->argv[0], 199);
     int rv = psrfits_open(&pfi);
     if (rv) { fits_report_error(stderr, rv); exit(1); }
 
@@ -612,8 +612,8 @@ int main(int argc, char *argv[]) {
     } while (pfi.status == 0);
 
     rv = psrfits_close(&pfi);
-    if (rv) { fits_report_error(stderr, rv); }
+    if (rv>100) { fits_report_error(stderr, rv); }
     rv = psrfits_close(&pfo);
-    if (rv) { fits_report_error(stderr, rv); }
+    if (rv>100) { fits_report_error(stderr, rv); }
     exit(0);
 }

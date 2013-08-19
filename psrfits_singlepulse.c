@@ -19,7 +19,7 @@ void cc(int sig) { run=0; }
 
 void usage() {
     printf(
-            "Usage: psrfits_singlepulse [options] input_filename_base\n"
+            "Usage: psrfits_singlepulse [options] input_filename_base or filenames\n"
             "Options:\n"
             "  -h, --help               Print this\n"
             "  -o name, --output=name   Output base filename (auto-generate)\n"
@@ -149,8 +149,9 @@ int main(int argc, char *argv[]) {
 
     /* Open first file */
     struct psrfits pf;
-    strcpy(pf.basefilename, argv[optind]);
-    pf.filenum = fnum_start;
+    psrfits_set_files(&pf, argc - optind, argv + optind);
+    // Use the dynamic filename allocation
+    if (pf.numfiles==0) pf.filenum = fnum_start;
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
     pf.hdr.chan_dm = 0.0; // What if folding data that has been partially de-dispersed?
     pf.filename[0]='\0';
@@ -471,6 +472,6 @@ int main(int argc, char *argv[]) {
     psrfits_close(&pf_out);
     psrfits_close(&pf);
 
-    if (rv) { fits_report_error(stderr, rv); }
+    if (rv>100) { fits_report_error(stderr, rv); }
     exit(0);
 }

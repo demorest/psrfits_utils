@@ -87,6 +87,7 @@ int main(int argc, char *argv[])
    pfupper.tot_rows = pfupper.N = pfupper.T = pfupper.status = 0;       //Initialize upper band
    pflower.tot_rows = pflower.N = pflower.T = pflower.status = 0;       //Initialize lower band
    pfupper.filenum = pflower.filenum = 1;
+   pfupper.numfiles = pflower.numfiles = 0;
    pfo.tot_rows = pfo.N = pfo.T = pfo.status = pfo.multifile = 0;       //Initialize output
    sprintf(pfupper.filename, cmd->argv[0]);     //Copy filename specified on command line to
    sprintf(pflower.filename, cmd->argv[0]);     //upper and lower bands, will correct filenames shortly
