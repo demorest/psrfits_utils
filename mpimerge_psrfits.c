@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
         status = psrfits_open(&pf);
         status = psrfits_close(&pf);
         free(pf.filenames);
-        //remove(tmpfilenm);
+        remove(tmpfilenm);
 
         // Now create the output PSTFITS file
         if (output_base[0]=='\0') {
