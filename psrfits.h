@@ -105,6 +105,7 @@ struct psrfits {
     long long N;            // Current number of spectra written
     double T;               // Current duration of the observation written
     int filenum;            // The current number of the file in the scan (1-offset)
+    int numfiles;           // The number of input files (if specified, 0 if basefilename)
     int rownum;             // The current subint number to be written (1-offset)
     int tot_rows;           // The total number of subints written so far
     int rows_per_file;      // The maximum number of rows (subints) per file
@@ -113,6 +114,7 @@ struct psrfits {
     int multifile;          // Write multiple output files
     int quiet;              // Be quiet about writing each subint
     char mode;              // Read (r) or write (w).
+    char **filenames;       // Array of the input file names
     struct hdrinfo hdr;
     struct subint sub;
     struct foldinfo fold;   
@@ -131,6 +133,8 @@ int psrfits_remove_polycos(struct psrfits *pf);
 int psrfits_remove_ephem(struct psrfits *pf);
 
 // In read_psrfits.c
+int is_search_PSRFITS(char *filename);
+void psrfits_set_files(struct psrfits *pf, int numfiles, char *filenames[]);
 int psrfits_open(struct psrfits *pf);
 int psrfits_read_subint(struct psrfits *pf);
 int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned, 

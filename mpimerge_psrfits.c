@@ -165,6 +165,8 @@ int main(int argc, char *argv[])
     pf.tot_rows = pf.N = pf.T = pf.status = 0;
     pf.filenum = fnum_start;
     pf.filename[0] = '\0';
+    pf.filenames = NULL;
+    pf.numfiles = 0;
 
     if (myid == 1) {
         FILE *psrfitsfile;
@@ -192,11 +194,16 @@ int main(int argc, char *argv[])
         psrfitsfile = fopen(tmpfilenm, "w");
         fwrite(&hdr, 1, HDRLEN, psrfitsfile);
         fclose(psrfitsfile); 
-        sprintf(pf.filename, "%s", tmpfilenm);
+        pf.filenames = (char **)malloc(sizeof(char *));
+        pf.filenames[0] = tmpfilenm;
+        pf.basefilename[0]='\0';
+        pf.filenum = 0;
+        pf.numfiles = 1;
 
         // And read the key information into a PSRFITS struct
         status = psrfits_open(&pf);
         status = psrfits_close(&pf);
+        free(pf.filenames);
         remove(tmpfilenm);
 
         // Now create the output PSTFITS file
@@ -205,9 +212,11 @@ int main(int argc, char *argv[])
             strcpy(output_base, argv[optind]);
         }
         strcpy(pf.basefilename, output_base);
-        pf.filenum = 0;
         pf.multifile = 1;
+        pf.filenum = 0;
+        pf.numfiles = 0;
         pf.filename[0] = '\0';
+        pf.filenames = NULL;
         nc = pf.hdr.nchan;
         ncnp = pf.hdr.nchan * pf.hdr.npol;
         gpubps = pf.sub.bytes_per_subint;

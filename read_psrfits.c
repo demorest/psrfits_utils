@@ -1,9 +1,67 @@
-/* read_psrfits.c 
- * Paul Demorest, 05/2008
- */
+/* read_psrfits.c */
 #include <stdio.h>
 #include <string.h>
 #include "psrfits.h"
+
+
+int is_search_PSRFITS(char *filename)
+// Return 1 if the file described by filename is a PSRFITS file
+// Return 0 otherwise.
+{
+    fitsfile *fptr;
+    int status=0;
+    char ctmp[80], comment[120];
+
+    // Read the primary HDU
+    fits_open_file(&fptr, filename, READONLY, &status);
+    if (status) return 0;
+
+    // Make the easy check first
+    fits_read_key(fptr, TSTRING, "FITSTYPE", ctmp, comment, &status);
+    if (status || strcmp(ctmp, "PSRFITS")) return 0;
+
+    // See if the data are search-mode
+    fits_read_key(fptr, TSTRING, "OBS_MODE", ctmp, comment, &status);
+    if (status || (strcmp(ctmp, "SEARCH") &&
+                   strcmp(ctmp, "SRCH"))) return 0;
+
+    fits_close_file(fptr, &status);
+    return 1;  // it is search-mode PSRFITS
+}
+
+
+void psrfits_set_files(struct psrfits *pf, int numfiles, char *filenames[])
+/* Determine whether we are using explicit filenames (and */
+/* how many there are, or whether we are building our own */
+/* using sequence numbers and the basefilename.           */
+{
+    int ii;
+
+    // Check if we were passed a basefilename
+    if (numfiles==1 && (!is_search_PSRFITS(filenames[0]))) {
+        strncpy(pf->basefilename, filenames[0], 200);
+        printf("Using '%s' as our base PSRFITS file name.\n", pf->basefilename);
+        pf->numfiles = 0;  // dynamically determined
+        pf->filenum = 1;
+        pf->filename[0] = '\0';
+        pf->filenames = NULL;
+        return;
+    }
+    // Using real filenames instead...
+    pf->basefilename[0]='\0';
+    pf->numfiles = numfiles;
+    pf->filenum = 0;
+    pf->filenames = filenames;
+    // Test that all of the input files are valid PSRFITS
+    for (ii = 0; ii < numfiles; ii++) {
+        // printf("Checking '%s'...\n", filenames[ii]);
+        if (!is_search_PSRFITS(filenames[ii]))
+            fprintf(stderr, "Error:  '%s' is not PSRFITS.  Exiting.\n", filenames[ii]);
+    }
+    printf("Found %d valid PSRFITS files for input.\n", numfiles);
+    return;
+}
+
 
 /* This function is similar to psrfits_create, except it
  * deals with reading existing files.  It is assumed that
@@ -22,11 +80,18 @@ int psrfits_open(struct psrfits *pf) {
     struct foldinfo *fold = &(pf->fold);
     int *status = &(pf->status);
 
-    sprintf(ctmp, "%s_%04d.fits", pf->basefilename, pf->filenum-1);
-    if (pf->filename[0]=='\0' || 
-        ((pf->filenum > 1) && (strcmp(ctmp, pf->filename)==0)))
-        // The 2nd test checks to see if we are creating filenames ourselves
+    if (pf->numfiles==0) {
+        // Dynamically generated file names
         sprintf(pf->filename, "%s_%04d.fits", pf->basefilename, pf->filenum);
+    } else {
+        // Using explicit filenames
+        if (pf->filenum < pf->numfiles) {
+            strncpy(pf->filename, pf->filenames[pf->filenum], 200);
+        } else {
+            *status = FILE_NOT_OPENED;
+            return *status;
+        }
+    }
 
     fits_open_file(&(pf->fptr), pf->filename, READONLY, status);
     pf->mode = 'r';
@@ -191,7 +256,7 @@ int psrfits_read_subint(struct psrfits *pf) {
         fits_close_file(pf->fptr, status);
         pf->filenum++;
         psrfits_open(pf);
-        if (*status==104) {
+        if (*status==FILE_NOT_OPENED) {
             printf("Finished with all input files.\n");
             pf->filenum--;
             *status = 1;
@@ -307,7 +372,7 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned,
         fits_close_file(pf->fptr, status);
         pf->filenum++;
         psrfits_open(pf);
-        if (*status==104) {
+        if (*status==FILE_NOT_OPENED) {
             printf("Finished with all input files.\n");
             pf->filenum--;
             *status = 1;
