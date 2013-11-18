@@ -231,6 +231,7 @@ char telescope_name_to_code(const char *name) {
     if (strcasecmp(name, "GB 43m")==0) return('a');
     if (strncasecmp(name, "GB140",5)==0) return('a');
     if (strncasecmp(name, "GB 140",6)==0) return('a');
+    if (strncasecmp(name, "NRAO20",6)==0) return('a');
 
     if (strncasecmp(name, "Arecibo",7)==0) return('3');
     if (strcasecmp(name, "AO")==0) return('3');
