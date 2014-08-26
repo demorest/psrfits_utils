@@ -428,6 +428,9 @@ int main(int argc, char *argv[]) {
         else if (pf.hdr.nbits==16)
             rv = pthread_create(&thread_id[cur_thread], NULL, 
                     fold_16bit_power_thread, &fargs[cur_thread]);
+        else if (pf.hdr.nbits==32)
+            rv = pthread_create(&thread_id[cur_thread], NULL, 
+                    fold_float_power_thread, &fargs[cur_thread]);
         else {
             fprintf(stderr, "Unsupported nbits=%d\n", pf.hdr.nbits);
             exit(1);

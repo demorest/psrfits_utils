@@ -46,6 +46,12 @@ int fold_16bit_power(const struct polyco *pc, int imjd, double fmjd,
         const int16_t *data, int nsamp, double tsamp, int raw_signed,
         struct foldbuf *f);
 
+void *fold_float_power_thread(void *_args);
+
+int fold_float_power(const struct polyco *pc, int imjd, double fmjd, 
+        const float *data, int nsamp, double tsamp,
+        struct foldbuf *f);
+
 int scale_offset_folds(struct foldbuf *f, 
         const float *scale, const float *offset);
 
