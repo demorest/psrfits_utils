@@ -238,6 +238,8 @@ char telescope_name_to_code(const char *name) {
 
     if (strcasecmp(name, "SHAO")==0) return('s');
 
+    if (strcasecmp(name, "VLA")==0) return('6');
+
     /* Not found, return null */
     return('\0');
 }
