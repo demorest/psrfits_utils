@@ -281,6 +281,14 @@ void *fold_16bit_power_thread(void *_args) {
     pthread_exit(&rv);
 }
 
+void *fold_float_power_thread(void *_args) {
+    struct fold_args *args = (struct fold_args *)_args;
+    int rv = fold_float_power(args->pc, args->imjd, args->fmjd, 
+            (const float *)args->data,
+            args->nsamp, args->tsamp, args->fb);
+    pthread_exit(&rv);
+}
+
 int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
         const char *data, int nsamp, double tsamp, int raw_signed,
         struct foldbuf *f) {
@@ -412,6 +420,49 @@ int fold_16bit_power(const struct polyco *pc, int imjd, double fmjd,
     return(0);
 }
 
+int fold_float_power(const struct polyco *pc, int imjd, double fmjd, 
+        const float *data, int nsamp, double tsamp, 
+        struct foldbuf *f) {
+
+    /* Find midtime */
+    double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
+
+    /* Check polyco set, allow 5% expansion of range */
+    if (pc_out_of_range_sloppy(pc, imjd, fmjd,1.05)) { return(-1); }
+
+    /* Calc phase, phase step */
+    /* NOTE: Starting sample phase is computed for the middle
+     * of the first sample, assuming input fmjd refers to 
+     * the rising edge of the first sample given
+     */
+    double dphase=0.0;
+    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL, NULL);
+    phase = fmod(phase, 1.0);
+    if (phase<0.0) { phase += 1.0; }
+    psr_phase(pc, imjd, fmjd_mid, &dphase, NULL);
+    dphase *= tsamp;
+
+    /* Fold em */
+    int i, ibin;
+    float *fptr;
+    for (i=0; i<nsamp; i++) {
+        ibin = (int)(phase * (double)f->nbin);
+        if (ibin<0) { ibin+=f->nbin; }
+        if (ibin>=f->nbin) { ibin-=f->nbin; }
+        fptr = &f->data[ibin*f->nchan*f->npol];
+        if (zero_check((const char *)&data[i*f->nchan*f->npol], 
+                    4*f->nchan*f->npol)==0) { 
+            vector_accumulate(fptr, 
+                    &data[i*f->nchan*f->npol],
+                    f->nchan*f->npol);
+            f->count[ibin]++;
+        }
+        phase += dphase;
+        if (phase>1.0) { phase -= 1.0; }
+    }
+
+    return(0);
+}
 int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f) {
     if (ftot->nbin!=f->nbin || ftot->nchan!=f->nchan || ftot->npol!=f->npol) {
         return(-1);
