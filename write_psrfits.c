@@ -9,6 +9,9 @@
 
 #define DEBUGOUT 0
 
+extern void pf_pack_8bit_to_2bit(struct psrfits *pf, int numunsigned);
+extern void pf_pack_8bit_to_4bit(struct psrfits *pf, int numunsigned);
+
 // Define different obs modes
 static const int search=SEARCH_MODE, fold=FOLD_MODE;
 int psrfits_obs_mode(const char *obs_mode) {
@@ -283,8 +286,9 @@ int psrfits_create(struct psrfits *pf) {
         fits_modify_vector_len(pf->fptr, 17, lltmp, status); // DATA
         // Update the TDIM field for the data column
         if (mode==search)
-            sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol, out_nsblk);
-        else if (mode==fold) 
+            sprintf(ctmp, "(1,%d,%d,%d)", out_nchan, out_npol,
+                    out_nsblk/(8/hdr->nbits));
+        else if (mode==fold)
             sprintf(ctmp, "(%d,%d,%d,1)", hdr->nbin, out_nchan, out_npol);
         fits_update_key(pf->fptr, TSTRING, "TDIM17", ctmp, NULL, status);
     }
@@ -314,8 +318,18 @@ int psrfits_write_subint(struct psrfits *pf) {
         out_nbytes = sub->bytes_per_subint / hdr->ds_freq_fact;
     else {
         out_nbytes = sub->bytes_per_subint / (hdr->ds_freq_fact * hdr->ds_time_fact);
+        if (hdr->nbits < 8)
+            out_nbytes /= (8 / hdr->nbits);
         if (hdr->onlyI)
             out_nbytes /= hdr->npol;
+    }
+
+    int numunsigned = hdr->npol;
+    if (hdr->npol==4) {
+        if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0)
+            numunsigned = 2;
+        if (strncmp(hdr->poln_order, "IQUV", 4)==0)
+            numunsigned = 1;
     }
 
     // Create the initial file or change to a new one if needed.
@@ -353,7 +367,8 @@ int psrfits_write_subint(struct psrfits *pf) {
     fits_write_col(pf->fptr, TFLOAT, 15, row, 1, nivals, sub->dat_offsets, status);
     fits_write_col(pf->fptr, TFLOAT, 16, row, 1, nivals, sub->dat_scales, status);
     if (mode==search) {
-        if (hdr->nbits==4) pf_8bit_to_4bit(pf);
+        if (hdr->nbits==2) pf_pack_8bit_to_2bit(pf, numunsigned);
+        else if (hdr->nbits==4) pf_pack_8bit_to_4bit(pf, numunsigned);
         fits_write_col(pf->fptr, TBYTE, 17, row, 1, out_nbytes, 
                        sub->rawdata, status);
     } else if (mode==fold) { 

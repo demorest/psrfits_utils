@@ -3,7 +3,8 @@ AC_CONFIG_SRCDIR([downsample.c])
 AC_CONFIG_MACRO_DIR([config])
 AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
-
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+LT_INIT
 AC_PROG_CC
 AC_PROG_LIBTOOL
 

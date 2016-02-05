@@ -29,6 +29,10 @@ typedef struct s_Cmdline {
   char numfilesP;
   int numfiles;
   int numfilesC;
+  /***** -outbits: Number of output bits desired */
+  char outbitsP;
+  int outbits;
+  int outbitsC;
   /***** -filetime: Desired length of the resulting files in sec */
   char filetimeP;
   float filetime;
@@ -37,14 +41,24 @@ typedef struct s_Cmdline {
   char filelenP;
   float filelen;
   int filelenC;
-  /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
-  char bytesP;
+  /***** -tgtstd: Target stdev. If 0, set in code based on outbits */
+  char tgtstdP;
+  float tgtstd;
+  int tgtstdC;
+  /***** -tgtavg: Target avg for UNSIGNED data. If 0, set in code based on outbits */
+  char tgtavgP;
+  float tgtavg;
+  int tgtavgC;
   /***** -onlyI: Only output total intensity data */
   char onlyIP;
   /***** -weights: Filename containing ASCII list of channels and weights to use */
   char wgtsfileP;
   char* wgtsfile;
   int wgtsfileC;
+  /***** -bandpass: Filename containing ASCII list of channels, avgs, stdevs to use */
+  char bandpassfileP;
+  char* bandpassfile;
+  int bandpassfileC;
   /***** -o: Basename for the output files */
   char outputbasenameP;
   char* outputbasename;
@@ -60,6 +74,8 @@ typedef struct s_Cmdline {
 extern char *Program;
 extern void usage(void);
 extern /*@shared*/Cmdline *parseCmdline(int argc, char **argv);
+
+extern void showOptionValues(void);
 
 #endif
 

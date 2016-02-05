@@ -18,6 +18,14 @@ extern void split_path_file(char *input, char **path, char **file);
 extern void get_stokes_I(struct psrfits *pf);
 extern void downsample_time(struct psrfits *pf);
 
+extern void pf_pack_8bit_to_2bit(struct psrfits *pf, int numunsigned);
+extern void pf_pack_8bit_to_4bit(struct psrfits *pf, int numunsigned);
+extern void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned);
+extern void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned);
+
+void read_bandpass(struct psrfits *pf, char *filenm, int *numchan,
+                   float **avgs, float **stds);
+
 struct subband_info {
     int nsub;
     int nchan;
@@ -84,7 +92,7 @@ void print_raw_chan_stats(unsigned char *data, int nspect, int nchan, int npol){
 }
 
 
-void get_chan_stats(struct psrfits *pfi, struct subband_info *si){   
+void get_chan_stats(struct psrfits *pfi, struct subband_info *si){
     int ii;
     double avg, std;
 
@@ -97,29 +105,67 @@ void get_chan_stats(struct psrfits *pfi, struct subband_info *si){
     }
 }
 
-
-void new_scales_and_offsets(struct psrfits *pfo, int numunsigned) {
+void new_scales_and_offsets(struct psrfits *pfo, int numunsigned, Cmdline *cmd) {
     int ii, poln;
     double avg, std;
     const int nspec = pfo->hdr.nsblk / pfo->hdr.ds_time_fact;
     const int nchan = pfo->hdr.nchan / pfo->hdr.ds_freq_fact;
     const int npoln = (pfo->hdr.onlyI) ? 1 : pfo->hdr.npol;
     const int bufwid = npoln * nchan;
-    const float target_std = 20.0;  // This is reasonable for 8-bit data
+    // Target avg is for unsigned; defaults to 0
+    float target_avg = cmd->tgtavg, target_std = cmd->tgtstd;
+    float *avgs = NULL, *stds = NULL;
+
+    if (cmd->tgtstd == 0.0) {
+        // Set these to give ~6-sigma of total gaussian
+        // variation across the full range of values
+        // The numerator is (256.0, 16.0, 4.0) for (8, 4, 2) bits
+        target_std = (1 << pfo->hdr.nbits) / 6.0;
+    }
+
+    if (cmd->tgtavg == 0.0) {
+        // Set these slightly below the midpoints to
+        // allow us more headroom for RFI
+        // The 1st term is (127.5, 7.5, 1.5) for (8, 4, 2) bits
+        target_avg = ((1 << (pfo->hdr.nbits - 1)) - 0.5) \
+            - 1.0 * target_std;
+    }
+
+    if (cmd->bandpassfileP) {
+        int N;
+        printf("Overriding input channel statistics with those in '%s'\n",
+               cmd->bandpassfile);
+        read_bandpass(pfo, cmd->bandpassfile, &N, &avgs, &stds);
+        if (N != nchan) {
+            printf("Error!:  Problem reading %d bandpass from '%s'\n\n",
+                   N, cmd->bandpassfile);
+            exit(-1);
+        }
+    } else {
+        avgs = (float *)malloc(nchan * sizeof(float));
+        stds = (float *)malloc(nchan * sizeof(float));
+    }
 
     for (poln = 0 ; poln < npoln ; poln++) {
-        float target_avg = (poln < numunsigned) ? 128.0 : 0.0;
+        float tgtavg = (poln < numunsigned) ? target_avg : 0.0;
         float *out_scls = pfo->sub.dat_scales + poln * nchan;
         float *out_offs = pfo->sub.dat_offsets + poln * nchan;
+        if (!cmd->bandpassfileP) {
+            for (ii = 0 ; ii < nchan ; ii++) {
+                float *fptr = pfo->sub.fdata + poln * nchan + ii;
+                avg_std(fptr, nspec, &avg, &std, bufwid);
+                avgs[ii] = avg;
+                stds[ii] = std;
+            }
+        }
         for (ii = 0 ; ii < nchan ; ii++) {
-            float *fptr = pfo->sub.fdata + poln * nchan + ii;
-            avg_std(fptr, nspec, &avg, &std, bufwid);
-            out_scls[ii] = std / target_std;
-            out_offs[ii] = avg - (target_avg * out_scls[ii]);
+            out_scls[ii] = stds[ii] / target_std;
+            out_offs[ii] = avgs[ii] - (tgtavg * out_scls[ii]);
         }
     }
+    free(avgs);
+    free(stds);
 }
-
 
 void new_weights(struct psrfits *inpf, struct psrfits *outpf)
 {
@@ -151,6 +197,11 @@ void fill_chans_with_avgs(int N, int samp_per_spect, float *buffer, float *avgs)
     }
 }
 
+static int cliptot_high = 0;
+static int cliptot_low = 0;
+static float cliptot_high_per = 0;
+static float cliptot_low_per = 0;
+
 // This routine removes the offsets from the floating point
 // data, divides by the scales, and converts (with clipping)
 // the resulting value into unsigned chars in the sub.data buffer
@@ -162,25 +213,40 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
     const int nspec = pf->hdr.nsblk / pf->hdr.ds_time_fact;
     const int nchan = pf->hdr.nchan / pf->hdr.ds_freq_fact;
     const int npoln = (pf->hdr.onlyI) ? 1 : pf->hdr.npol;
+    const float uclip_min = 0.0;
+    // The following is (255.0, 15.0, 3.0) for (8, 4, 2) bits
+    const float uclip_max = ((1 << pf->hdr.nbits) - 1.0);
+    float sclip_min, sclip_max;
 
+    if (pf->hdr.nbits == 8) {
+        sclip_min = -128.0;
+        sclip_max = 127.0;
+    } else if (pf->hdr.nbits == 4) {
+        sclip_min = -8.0;
+        sclip_max = 7.0;
+    } else if (pf->hdr.nbits == 2) {
+        sclip_min = -2.0;
+        sclip_max = 1.0;
+    }
     for (ii = 0 ; ii < nspec ; ii++) {
         for (poln = 0 ; poln < npoln ; poln++) {
             float *sptr = pf->sub.dat_scales + poln * nchan;
             float *optr = pf->sub.dat_offsets + poln * nchan;
-            if (poln < numunsigned) {
+            if (poln < numunsigned) { // i.e. no negs needed
                 for (jj = 0 ; jj < nchan ; jj++, sptr++, optr++, inptr++, outptr++) {
-                    //printf("%d  %f  %f  %f\n", jj, *inptr, *sptr, *optr);
+                    // +0.5 fills last 0.5 of dynamic range (clip vs. rounding)
                     float ftmp = (*inptr - *optr) / *sptr + 0.5;
-                    ftmp = (ftmp >= 255.0) ? 255.0 : ftmp;
-                    ftmp = (ftmp < 0.0) ? 0.0 : ftmp;
+                    cliptot_high += (ftmp > uclip_max);
+                    cliptot_low += (ftmp < uclip_min);
+		    ftmp = (ftmp >= uclip_max) ? uclip_max : ftmp;
+                    ftmp = (ftmp < uclip_min) ? uclip_min : ftmp;
                     *outptr = (unsigned char) ftmp;
                 }
-            } else {
+            } else { // Signed values
                 for (jj = 0 ; jj < nchan ; jj++, sptr++, optr++, inptr++, outptr++) {
-                    //printf("%d  %f  %f  %f\n", jj, *inptr, *sptr, *optr);
                     float ftmp = (*inptr - *optr) / *sptr + 0.5;
-                    ftmp = (ftmp >= 128.0) ? 128.0 : ftmp;
-                    ftmp = (ftmp < -127.0) ? -127 : ftmp;
+                    ftmp = (ftmp >= sclip_max) ? sclip_max : ftmp;
+                    ftmp = (ftmp < sclip_min) ? sclip_min : ftmp;
                     *outptr = (signed char) ftmp;
                 }
             }
@@ -188,19 +254,25 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
     }
 }
 
+void print_clips(struct psrfits *pf) {
+    float prod = ((float) pf->hdr.nchan * (float) pf->hdr.nsblk * (float) pf->tot_rows);
+    float cliptot_high_per = (float) cliptot_high * 100.0 / prod;
+    float cliptot_low_per = (float) cliptot_low * 100.0 / prod;
+    printf("Upper clipped percentage: %f%; Lower clipped percentage: %f% \n",cliptot_high_per,cliptot_low_per);
+}
 
 int get_current_row(struct psrfits *pfi, struct subband_info *si) {
     static int firsttime = 1, num_pad_blocks = 0;
     static double last_offs, row_duration;
     double diff_offs, dnum_blocks;
-    
+
     if (firsttime) {
         row_duration = pfi->sub.tsubint;
         last_offs = pfi->sub.offs-row_duration;
         firsttime = 0;
     }
 
-    print_percent_complete(pfi->rownum, pfi->rows_per_file, 
+    print_percent_complete(pfi->rownum, pfi->rows_per_file,
                            pfi->rownum==1 ? 1 : 0);
 
 #if 0
@@ -225,11 +297,11 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
                 pfi->rownum--;   // Will re-read when no more padding
                 pfi->tot_rows--; // Only count "real" rows towards tot_rows
 #if 1
-                printf("At row %d, found %d dropped rows.\n", 
+                printf("At row %d, found %d dropped rows.\n",
                        pfi->rownum, num_pad_blocks);
-                printf("Adding a missing row (#%d) of padding to the subbands.\n", 
+                printf("Adding a missing row (#%d) of padding to the subbands.\n",
                        pfi->tot_rows);
-#endif        
+#endif
                 pfi->N -= pfi->hdr.nsblk;  // Will be re-added below for padding
             }
             // Now fill the main part of si->fbuffer with the chan_avgs so that
@@ -277,7 +349,7 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
         inv_sumwgts[ii] = (sumwgts) ? 1.0 / sumwgts : 0.0;
     }
 
-    // Iterate over the times 
+    // Iterate over the times
     for (ii = 0 ; ii < si->buflen ; ii++) {
         // Iterate over the polarizations
         for (jj = 0 ; jj < si->npol ; jj++) {
@@ -300,13 +372,17 @@ void make_subbands(struct psrfits *pfi, struct subband_info *si) {
 }
 
 
-void init_subbanding(struct psrfits *pfi,
-                     struct psrfits *pfo,
-                     struct subband_info *si,
-                     Cmdline *cmd) {
+void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
+                     struct subband_info *si, Cmdline *cmd)
+{
     int ii, jj, kk, cindex;
     double lofreq, dtmp;
-    
+
+    // If -nsub is not set, do no subbanding
+    if (!cmd->nsubP) cmd->nsub = pfi->hdr.nchan;
+    // Don't change the number of output bits unless we explicitly ask to
+    if (!cmd->outbitsP) cmd->outbits = pfi->hdr.nbits;
+
     si->nsub = cmd->nsub;
     si->nchan = pfi->hdr.nchan;
     si->npol = pfi->hdr.npol;
@@ -329,7 +405,7 @@ void init_subbanding(struct psrfits *pfi,
     }
     // Check the downsampling factor in frequency
     if (si->nchan % si->nsub) {
-        fprintf(stderr, 
+        fprintf(stderr,
                 "Error!  %d channels is not evenly divisible by %d subbands!\n",
                 si->nchan, si->nsub);
         exit(1);
@@ -380,7 +456,7 @@ void init_subbanding(struct psrfits *pfi,
         // Determine the dispersion delays and convert them
         // to offsets in units of sample times
         for (jj = 0 ; jj < si->chan_per_sub ; jj++, cindex++) {
-            si->chan_delays[cindex] = delay_from_dm(si->dm, 
+            si->chan_delays[cindex] = delay_from_dm(si->dm,
                                                     pfi->sub.dat_freqs[cindex]);
             si->chan_delays[cindex] -= si->sub_delays[ii];
             si->idelays[cindex] = (int)rint(si->chan_delays[cindex] / pfi->hdr.dt);
@@ -397,32 +473,40 @@ void init_subbanding(struct psrfits *pfi,
     }
     si->max_overlap = abs(si->max_early) + si->max_late;
 
-    // This buffer will hold the float-converted input data, plus the bits 
+    // This buffer will hold the float-converted input data, plus the bits
     // of data from the previous and next blocks
     si->fbuffer = (float *)calloc((si->buflen + 2 * si->max_overlap) *
                                   si->bufwid, sizeof(float));
     // The input data will be stored directly in the buffer space
     // So the following is really just an offset into the bigger buffer
     pfi->sub.fdata = si->fbuffer + si->max_overlap * si->bufwid;
-    
+
     // Now start setting values for the output arrays
     *pfo = *pfi;
+
+    // We are changing the number of bits in the data
+    if (pfi->hdr.nbits != cmd->outbits)
+        pfo->hdr.nbits = cmd->outbits;
+
     // Determine the length of the outputfiles to use
     if (cmd->filetimeP) {
         pfo->rows_per_file = 10 * \
             (int) rint(0.1 * (cmd->filetime / pfi->sub.tsubint));
-    } else if (cmd->filelenP) {        
+    } else if (cmd->filelenP) {
         long long filelen;
         int bytes_per_subint;
         filelen = cmd->filelen * (1L<<30);  // In GB
-        bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan * 
+        bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan *
                             pfo->hdr.npol * pfo->hdr.nsblk) / \
             (8 * si->chan_per_sub * cmd->dstime * (cmd->onlyIP ? 4 : 1));
         pfo->rows_per_file = filelen / bytes_per_subint;
+        pfo->sub.bytes_per_subint = bytes_per_subint;
     } else {  // By default, keep the filesize roughly constant
-        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub * 
-            cmd->dstime * (cmd->onlyIP ? 4 : 1);
+        pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub *
+            cmd->dstime * (cmd->onlyIP ? 4 : 1) *
+            pfi->hdr.nbits / pfo->hdr.nbits;
     }
+
     pfo->filenum = 0; // This causes the output files to be created
     pfo->filename[0] = '\0';
     pfo->rownum = 1;
@@ -450,7 +534,7 @@ void init_subbanding(struct psrfits *pfi,
     pfo->sub.rawdata = (unsigned char *)malloc(si->nsub * si->npol * si->buflen);
     if (pfo->hdr.nbits!=8) {
         pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen *
-                                                (8 / pfi->hdr.nbits));
+                                                (8 / pfo->hdr.nbits));
     } else {
         pfo->sub.data = pfo->sub.rawdata;
     }
@@ -483,35 +567,105 @@ void read_weights(char *filenm, int *numchan, float **weights)
     // Read the input file once to count the lines
     N = 0;
     while (!feof(infile)){
-        fgets(line, 80, infile);
-        if (line[0]!='#') {
-            sscanf(line, "%d %f\n", &chan, &wgt);
-            N++;
+        if (fgets(line, 80, infile) != NULL) {
+            if (line[0]!='#') {
+                sscanf(line, "%d %f\n", &chan, &wgt);
+                N++;
+            }
         }
     }
-    N--;
     *numchan = N;
 
     // Allocate the output arrays
     *weights = (float *)malloc(N * sizeof(float));
 
-    // Rewind and read the EVENTs for real
+    // Rewind and read the lines for real
     rewind(infile);
     ii = 0;
     while (ii < N) {
-        fgets(line, 80, infile);
-        if (line[0]!='#') {
-            sscanf(line, "%d %f\n", &chan, (*weights)+ii);
-            ii++;
+        if (fgets(line, 80, infile) != NULL) {
+            if (line[0]!='#') {
+                sscanf(line, "%d %f\n", &chan, (*weights)+ii);
+                ii++;
+            }
         }
     }
     fclose(infile);
 }
 
 
+void read_bandpass(struct psrfits *pf, char *filenm, int *numchan,
+                   float **avgs, float **stds)
+{
+    FILE *infile;
+    int ii, N, chan;
+    float *frqs, freq, avg, std;
+    char line[80], *ret;
+
+    infile = fopen(filenm, "r");
+
+    // Read the input file once to count the lines
+    N = 0;
+    while (!feof(infile)){
+        if (fgets(line, 80, infile) != NULL) {
+            if (line[0]!='#') {
+                sscanf(line, "%d %f %f %f\n", &chan, &freq, &avg, &std);
+                N++;
+            }
+        }
+    }
+    *numchan = N;
+
+    // Allocate the output arrays
+    *avgs = (float *)malloc(N * sizeof(float));
+    *stds = (float *)malloc(N * sizeof(float));
+    frqs = (float *)malloc(N * sizeof(float));
+
+    // Verify that the number of channels is correct
+    if (N != pf->hdr.nchan) {
+        printf("Error: Number of channels in bandpass file not the same as in raw data!\n");
+        exit(1);
+    }
+
+    // Rewind and read the lines for real
+    rewind(infile);
+    ii = 0;
+    while (ii < N) {
+        if (fgets(line, 80, infile) != NULL) {
+            if (line[0]!='#') {
+                sscanf(line, "%d %f %f %f\n", &chan, frqs+ii, (*avgs)+ii, (*stds)+ii);
+                ii++;
+            }
+        }
+    }
+    fclose(infile);
+
+    // Now check the channel frequency ordering to make sure consistent sideband
+    if (fabs((pf->sub.dat_freqs[0] - frqs[0])/frqs[0]) < 1e-7) {
+        printf("...frequencies seem to be in correct order.\n");
+    } else if (fabs((pf->sub.dat_freqs[0] - frqs[N-1])/frqs[N-1]) < 1e-7) {
+        printf("...frequencies need to be reversed in bandpass file (doing that).\n");
+        float tmp, *avg = (*avgs), *std = (*stds);
+        for (ii = 0 ; ii < N/2 ; ii++) {
+            tmp = avg[ii];
+            avg[ii] = avg[N-1-ii];
+            avg[N-1-ii] = tmp;
+            tmp = std[ii];
+            std[ii] = std[N-1-ii];
+            std[N-1-ii] = tmp;
+        }
+    } else {
+        printf("Error: Frequencies in the bandpass don't seem correct!\n");
+        printf("  For first channel:  %12.7f  vs  %12.7f\n",
+               pf->sub.dat_freqs[0], frqs[0]);
+        exit(1);
+    }
+}
+
+
 int main(int argc, char *argv[]) {
     Cmdline *cmd;
-    struct psrfits pfi, pfo;
+    struct psrfits pfi, pfo; // input and output
     struct subband_info si;
     int stat=0, padding=0, userN=0;
 
@@ -521,12 +675,13 @@ int main(int argc, char *argv[]) {
         usage();
         exit(0);
     }
-    
+
     // Parse the command line using the excellent program Clig
     cmd = parseCmdline(argc, argv);
 
     // Open the input PSRFITs files
     psrfits_set_files(&pfi, cmd->argc, cmd->argv);
+
     // Use the dynamic filename allocation
     if (pfi.numfiles==0) pfi.filenum = cmd->startfile;
     pfi.tot_rows = pfi.N = pfi.T = pfi.status = 0;
@@ -568,11 +723,27 @@ int main(int argc, char *argv[]) {
             fill_chans_with_avgs(si.max_overlap, si.bufwid,
                                  ptr, si.chan_avgs);
         }
-        //print_raw_chan_stats(pfi.sub.data, pfi.hdr.nsblk, 
+        //print_raw_chan_stats(pfi.sub.data, pfi.hdr.nsblk,
         //                     pfi.hdr.nchan, pfi.hdr.npol);
 
-        // Now create the subbanded row in the output buffer
-        make_subbands(&pfi, &si);
+        // if the input data isn't 8 bit, unpack:
+        if (pfi.hdr.nbits == 2)
+            pf_unpack_2bit_to_8bit(&pfi, si.numunsigned);
+        else if (pfi.hdr.nbits == 4)
+            pf_unpack_4bit_to_8bit(&pfi, si.numunsigned);
+
+        if ((pfo.hdr.ds_time_fact == 1) &&
+            (pfo.hdr.ds_freq_fact == 1)) {
+            // No subbanding is needed, so just copy the float buffer
+            // This is useful if we are just changing the number of bits
+            // Could do it without a copy by simply exchanging pointers
+            // to the fdata buffers in pfo and pfi...
+            memcpy(pfo.sub.fdata, pfi.sub.fdata,
+                   pfi.hdr.nsblk * pfi.hdr.npol * pfi.hdr.nchan * sizeof(float));
+        } else {
+            // Now create the subbanded row in the output buffer
+            make_subbands(&pfi, &si);
+        }
 
         // Output only Stokes I (in place via floats)
         if (pfo.hdr.onlyI && pfo.hdr.npol==4)
@@ -584,12 +755,19 @@ int main(int argc, char *argv[]) {
 
         // Compute new scales and offsets so that we can pack
         // into 8-bits reliably
-        new_scales_and_offsets(&pfo, si.numunsigned);
+        if (pfo.rownum == 1)
+            new_scales_and_offsets(&pfo, si.numunsigned, cmd);
 
         // Convert the floats back to bytes in the output array
         un_scale_and_offset_data(&pfo, si.numunsigned);
-        //print_raw_chan_stats(pfo.sub.data, pfo.hdr.nsblk / pfo.hdr.ds_time_fact,  
+        //print_raw_chan_stats(pfo.sub.data, pfo.hdr.nsblk / pfo.hdr.ds_time_fact,
         //                     pfo.hdr.nchan / pfo.hdr.ds_freq_fact, pfo.hdr.npol);
+        
+	// pack into 2 or 4 bits if needed
+        if (pfo.hdr.nbits == 2)
+            pf_pack_8bit_to_2bit(&pfo, si.numunsigned);
+        else if (pfo.hdr.nbits == 4)
+            pf_pack_8bit_to_4bit(&pfo, si.numunsigned);
 
         // Write the new row to the output file
         pfo.sub.offs = (pfo.tot_rows+0.5) * pfo.sub.tsubint;
@@ -598,7 +776,7 @@ int main(int argc, char *argv[]) {
         // Break out of the loop here if stat is set
         if (stat) break;
 
-        // shift the last part of the current row into the "last-row" 
+        // shift the last part of the current row into the "last-row"
         // part of the data buffer
         memcpy(si.fbuffer, si.fbuffer + si.buflen * si.bufwid,
                si.max_overlap * si.bufwid * sizeof(float));
@@ -608,12 +786,14 @@ int main(int argc, char *argv[]) {
 
         // Set the new weights properly
         new_weights(&pfi, &pfo);
-
+        
     } while (pfi.status == 0);
-
+    
+    print_clips(&pfo);
     rv = psrfits_close(&pfi);
     if (rv>100) { fits_report_error(stderr, rv); }
     rv = psrfits_close(&pfo);
     if (rv>100) { fits_report_error(stderr, rv); }
     exit(0);
 }
+

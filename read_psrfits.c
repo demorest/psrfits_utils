@@ -3,6 +3,12 @@
 #include <string.h>
 #include "psrfits.h"
 
+extern void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned);
+extern void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned);
+extern void unpack_2bit_to_8bit_unsigned(unsigned char *indata,
+                                         unsigned char *outdata, int N);
+extern void unpack_4bit_to_8bit_unsigned(unsigned char *indata,
+                                         unsigned char *outdata, int N);
 
 int is_search_PSRFITS(char *filename)
 // Return 1 if the file described by filename is a PSRFITS file
@@ -268,6 +274,13 @@ int psrfits_read_subint(struct psrfits *pf) {
     int nchan = hdr->nchan;
     int nivals = hdr->nchan * hdr->npol;
     int row = pf->rownum;
+    int numunsigned = hdr->npol;
+    if (hdr->npol==4) {
+        if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0)
+            numunsigned = 2;
+        if (strncmp(hdr->poln_order, "IQUV", 4)==0)
+            numunsigned = 1;
+    }
 
     // TODO: bad! really need to base this on column names
     fits_get_colnum(pf->fptr, 0, "TSUBINT", &colnum, status);
@@ -332,7 +345,8 @@ int psrfits_read_subint(struct psrfits *pf) {
     if (mode==SEARCH_MODE) {
         fits_read_col(pf->fptr, TBYTE, colnum, row, 1, sub->bytes_per_subint,
                       NULL, sub->rawdata, NULL, status);
-        if (hdr->nbits==4) pf_4bit_to_8bit(pf);
+        if (hdr->nbits==2) pf_unpack_2bit_to_8bit(pf, numunsigned);
+        else if (hdr->nbits==4) pf_unpack_4bit_to_8bit(pf, numunsigned);
     } else if (mode==FOLD_MODE) {
         fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, sub->bytes_per_subint,
                       NULL, sub->data, NULL, status);
@@ -387,7 +401,7 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned,
     float *scales = (float *)malloc(sizeof(float) * nivals);
     unsigned char *buffer = (unsigned char *)malloc(numdata);
     unsigned char *rawbuffer = buffer;
-    if (hdr->nbits==4) {
+    if (hdr->nbits==4 || hdr->nbits==2) {
         rawbuffer = (unsigned char *)malloc(bytes_to_read);
     }
 
@@ -402,7 +416,12 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned,
     fits_read_col(pf->fptr, TBYTE, colnum, pf->rownum, 1, bytes_to_read,
                   NULL, rawbuffer, NULL, status);
     if (hdr->nbits==4) {
-        convert_4bit_to_8bit(rawbuffer, (unsigned char *)buffer, numdata);
+        unpack_4bit_to_8bit_unsigned(rawbuffer,
+                                     (unsigned char *)buffer, numdata);
+        free(rawbuffer);
+    } else if (hdr->nbits==2) {
+        unpack_2bit_to_8bit_unsigned(rawbuffer,
+                                     (unsigned char *)buffer, numdata);
         free(rawbuffer);
     }
     
