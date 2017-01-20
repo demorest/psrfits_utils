@@ -37,7 +37,9 @@ void usage() {
             "  -u, --unsigned           Raw data is unsigned\n"
             "  -U n, --nunsigned        Num of unsigned polns\n"
             "  -S size, --split=size    Approximate max size per output file, GB (1)\n"
-            "  -A, --apply              Apply input scale/offset to the results\n",
+            "  -A, --apply              Apply input scale/offset to the results\n"
+            "  -T nn, --start=nn        Start nn seconds in to the set\n"
+            "  -E nn, --end=nn          Stop nn seconds in to the set\n"
             "  -q, --quiet              No progress indicator\n"
           );
 }
@@ -62,6 +64,8 @@ int main(int argc, char *argv[]) {
         {"split",   1, NULL, 'S'},
         {"apply",   0, NULL, 'A'},
         {"quiet",   0, NULL, 'q'},
+        {"start",   1, NULL, 'T'},
+        {"end",     1, NULL, 'E'},
         {"help",    0, NULL, 'h'},
         {0,0,0,0}
     };
@@ -71,11 +75,12 @@ int main(int argc, char *argv[]) {
     double split_size_gb = 1.0;
     double tfold = 60.0; 
     double fold_frequency=0.0;
+    double tstart=-1.0, tend=-1.0;
     char output_base[256] = "";
     char polyco_file[256] = "";
     char par_file[256] = "";
     char source[24];  source[0]='\0';
-    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuU:S:Aqh",long_opts,&opti))!=-1) {
+    while ((opt=getopt_long(argc,argv,"o:b:t:j:i:f:s:p:P:F:CuU:S:AT:E:qh",long_opts,&opti))!=-1) {
         switch (opt) {
             case 'o':
                 strncpy(output_base, optarg, 255);
@@ -128,6 +133,12 @@ int main(int argc, char *argv[]) {
                 break;
             case 'A':
                 apply_scale = 1;
+                break;
+            case 'T':
+                tstart = atof(optarg);
+                break;
+            case 'E':
+                tend = atof(optarg);
                 break;
             case 'q':
                 quiet=1;
@@ -282,6 +293,7 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
             fclose(pcfile);
+            printf("Read %d polycos\n", npc);
         }
     } else {
         // Const fold period mode, generate a fake polyco?
@@ -375,6 +387,10 @@ int main(int argc, char *argv[]) {
         fmjd = (double)(pf.hdr.MJD_epoch - (long double)imjd);
         fmjd += (pf.sub.offs-0.5*pf.sub.tsubint)/86400.0;
 
+        /* Check for start/end times */
+        if (tstart>0.0 && pf.sub.offs<tstart) { continue; }
+        if (tend>0.0 && pf.sub.offs>tend) { run=0; break; }
+
         /* First time stuff */
         if (first) {
             fmjd0 = fmjd;
@@ -398,8 +414,8 @@ int main(int argc, char *argv[]) {
 
         /* Select polyco set */
         if (use_polycos) {
-            ipc = select_pc(pc, npc, source, imjd, fmjd);
-            //ipc = select_pc(pc, npc, NULL, imjd, fmjd);
+            //ipc = select_pc(pc, npc, source, imjd, fmjd);
+            ipc = select_pc(pc, npc, NULL, imjd, fmjd);
             if (ipc<0) { 
                 fprintf(stderr, "No matching polycos (src=%s, imjd=%d, fmjd=%f)\n",
                         source, imjd, fmjd);
