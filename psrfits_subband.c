@@ -258,7 +258,8 @@ void print_clips(struct psrfits *pf) {
     float prod = ((float) pf->hdr.nchan * (float) pf->hdr.nsblk * (float) pf->tot_rows);
     float cliptot_high_per = (float) cliptot_high * 100.0 / prod;
     float cliptot_low_per = (float) cliptot_low * 100.0 / prod;
-    printf("Upper clipped percentage: %f%; Lower clipped percentage: %f% \n",cliptot_high_per,cliptot_low_per);
+    printf("Upper clipped percentage: %.3f%%; Lower clipped percentage: %.3f%%\n", 
+	   cliptot_high_per, cliptot_low_per);
 }
 
 int get_current_row(struct psrfits *pfi, struct subband_info *si) {
