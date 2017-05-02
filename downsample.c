@@ -160,16 +160,16 @@ void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned)
         for (poln = 0 ; poln < npol ; poln++) {
             if (poln < numunsigned) { // unsigned
                 unsigned char *indata = pf->sub.rawdata + \
-                    ii * nspec * npol / 4 + poln * nchan / 4;
-                unsigned char *outdata = pf->sub.data + ii * nspec * npol + \
-                    poln * nchan;
+                    ii * npol * nchan / 4 + poln * nchan / 4;
+                unsigned char *outdata = pf->sub.data + \
+                    ii * npol * nchan + poln * nchan;
                 unpack_2bit_to_8bit_unsigned(indata, outdata, nchan);
             } else { // signed
                 char *indata = (char *) (pf->sub.rawdata + \
-                                         ii * nspec * npol / 4 + \
+                                         ii * npol * nchan / 4 + \
                                          poln * nchan / 4);
                 char *outdata = (char *) (pf->sub.data + \
-                                          ii * nspec * npol + \
+                                          ii * npol * nchan + \
                                           poln * nchan);
                 unpack_2bit_to_8bit_signed(indata, outdata, nchan);
             }
@@ -220,16 +220,16 @@ void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned)
         for (poln = 0 ; poln < npol ; poln++) {
             if (poln < numunsigned) { // unsigned
                 unsigned char *indata = pf->sub.rawdata + \
-                    ii * nspec * npol / 2 + poln * nchan / 2;
-                unsigned char *outdata = pf->sub.data + ii * nspec * npol + \
-                    poln * nchan;
+                    ii * npol * nchan / 2 + poln * nchan / 2;
+                unsigned char *outdata = pf->sub.data + \
+                    ii * npol * nchan + poln * nchan;
                 unpack_4bit_to_8bit_unsigned(indata, outdata, nchan);
             } else { // signed
                 char *indata = (char *) (pf->sub.rawdata + \
-                                         ii * nspec * npol / 2 + \
+                                         ii * npol * nchan / 2 + \
                                          poln * nchan / 2);
                 char *outdata = (char *) (pf->sub.data + \
-                                          ii * nspec * npol + \
+                                          ii * npol * nchan + \
                                           poln * nchan);
                 unpack_4bit_to_8bit_signed(indata, outdata, nchan);
             }

@@ -317,10 +317,11 @@ int main(int argc, char *argv[]) {
     fargs = (struct fold_args *)malloc(sizeof(struct fold_args) * nthread);
     for (i=0; i<nthread; i++) { 
         thread_id[i] = 0; 
-        // If PSRFITS file's raw samples are 8-bits each 
+        // If PSRFITS file's raw samples less than 8-bits each,
         // pf.sub.bytes_per_subint will be too small to hold 8-bit samples
         // So make data array large enough to hold 8-bit samples
-        fargs[i].data = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint*(8/pf.hdr.nbits));
+        fargs[i].data = (char *)malloc(sizeof(char) *
+                                       pf.sub.bytes_per_subint * (8/pf.hdr.nbits));
         fargs[i].fb = (struct foldbuf *)malloc(sizeof(struct foldbuf));
         fargs[i].fb->nbin = pf_out.hdr.nbin;
         fargs[i].fb->nchan = pf.hdr.nchan;
@@ -353,7 +354,7 @@ int main(int argc, char *argv[]) {
             // 8-bit raw data. No need for conversion
             pf.sub.rawdata = pf.sub.data;
         } else {
-            pf.sub.rawdata = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint);
+            pf.sub.rawdata = (char *)malloc(sizeof(char) * pf.sub.bytes_per_subint);
         }
         rv = psrfits_read_subint(&pf);
         if (rv) { 
@@ -530,6 +531,12 @@ int main(int argc, char *argv[]) {
                     100.0 * (float)(pf.rownum-1)/(float)pf.rows_per_file);
             fflush(stdout);
         }
+
+        /* Free the allocated memory if needs be */
+        if (pf.hdr.nbits != 8) {
+            free(pf.sub.rawdata);
+        }
+
     }
 
     /* Join any running threads */
