@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <pthread.h>
 
 #ifdef FOLD_USE_INTRINSICS
@@ -178,6 +179,15 @@ void vector_accumulate_8bit_unsigned(float *out,
 #endif
 }
 
+void vector_accumulate_16bit(float *out, const int16_t *in, int n) {
+    int i;
+    for (i=0; i<n; i++) { out[i] += (float)in[i]; }
+}
+
+void vector_accumulate_16bit_unsigned(float *out, const uint16_t *in, int n) {
+    int i;
+    for (i=0; i<n; i++) { out[i] += (float)in[i]; }
+}
 
 void vector_accumulate(float *out, const float *in, int n) {
 #ifdef FOLD_USE_INTRINSICS
@@ -263,6 +273,22 @@ void *fold_8bit_power_thread(void *_args) {
     pthread_exit(&rv);
 }
 
+void *fold_16bit_power_thread(void *_args) {
+    struct fold_args *args = (struct fold_args *)_args;
+    int rv = fold_16bit_power(args->pc, args->imjd, args->fmjd, 
+            (const int16_t *)args->data,
+            args->nsamp, args->tsamp, args->raw_signed, args->fb);
+    pthread_exit(&rv);
+}
+
+void *fold_float_power_thread(void *_args) {
+    struct fold_args *args = (struct fold_args *)_args;
+    int rv = fold_float_power(args->pc, args->imjd, args->fmjd, 
+            (const float *)args->data,
+            args->nsamp, args->tsamp, args->fb);
+    pthread_exit(&rv);
+}
+
 int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd, 
         const char *data, int nsamp, double tsamp, int raw_signed,
         struct foldbuf *f) {
@@ -293,7 +319,7 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
         if (ibin<0) { ibin+=f->nbin; }
         if (ibin>=f->nbin) { ibin-=f->nbin; }
         fptr = &f->data[ibin*f->nchan*f->npol];
-        if (zero_check(&data[i*f->nchan*f->npol],f->nchan*f->npol)==0) { 
+        if (zero_check(&data[i*f->nchan*f->npol], f->nchan*f->npol)==0) { 
             if (raw_signed==1)
                 vector_accumulate_8bit(fptr, 
                         &data[i*f->nchan*f->npol],
@@ -328,6 +354,115 @@ int fold_8bit_power(const struct polyco *pc, int imjd, double fmjd,
     return(0);
 }
 
+int fold_16bit_power(const struct polyco *pc, int imjd, double fmjd, 
+        const int16_t *data, int nsamp, double tsamp, int raw_signed,
+        struct foldbuf *f) {
+
+    /* Find midtime */
+    double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
+
+    /* Check polyco set, allow 5% expansion of range */
+    if (pc_out_of_range_sloppy(pc, imjd, fmjd,1.05)) { return(-1); }
+
+    /* Calc phase, phase step */
+    /* NOTE: Starting sample phase is computed for the middle
+     * of the first sample, assuming input fmjd refers to 
+     * the rising edge of the first sample given
+     */
+    double dphase=0.0;
+    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL, NULL);
+    phase = fmod(phase, 1.0);
+    if (phase<0.0) { phase += 1.0; }
+    psr_phase(pc, imjd, fmjd_mid, &dphase, NULL);
+    dphase *= tsamp;
+
+    /* Fold em */
+    int i, ibin;
+    float *fptr;
+    for (i=0; i<nsamp; i++) {
+        ibin = (int)(phase * (double)f->nbin);
+        if (ibin<0) { ibin+=f->nbin; }
+        if (ibin>=f->nbin) { ibin-=f->nbin; }
+        fptr = &f->data[ibin*f->nchan*f->npol];
+        if (zero_check((const char *)&data[i*f->nchan*f->npol],
+                    2*f->nchan*f->npol)==0) { 
+            if (raw_signed==1)
+                vector_accumulate_16bit(fptr, 
+                        &data[i*f->nchan*f->npol],
+                        f->nchan*f->npol);
+            else if (raw_signed==2) {
+                // First 2 polns are unsigned, last 2 are signed
+                vector_accumulate_16bit_unsigned(fptr, 
+                        &data[i*f->nchan*f->npol],
+                        f->nchan*2);
+                vector_accumulate_16bit(fptr + 2*f->nchan, 
+                        &data[i*f->nchan*f->npol + 2*f->nchan],
+                        f->nchan*2);
+            } else if (raw_signed==3) {
+                // First 1 pol is unsigned, last 3 are signed
+                vector_accumulate_16bit_unsigned(fptr, 
+                        &data[i*f->nchan*f->npol],
+                        f->nchan);
+                vector_accumulate_16bit(fptr + f->nchan, 
+                        &data[i*f->nchan*f->npol + f->nchan],
+                        f->nchan*3);
+            } else 
+                // All unsigned
+                vector_accumulate_16bit_unsigned(fptr, 
+                        (uint16_t *)&data[i*f->nchan*f->npol],
+                        f->nchan*f->npol);
+            f->count[ibin]++;
+        }
+        phase += dphase;
+        if (phase>1.0) { phase -= 1.0; }
+    }
+
+    return(0);
+}
+
+int fold_float_power(const struct polyco *pc, int imjd, double fmjd, 
+        const float *data, int nsamp, double tsamp, 
+        struct foldbuf *f) {
+
+    /* Find midtime */
+    double fmjd_mid = fmjd + nsamp*tsamp/2.0/86400.0;
+
+    /* Check polyco set, allow 5% expansion of range */
+    if (pc_out_of_range_sloppy(pc, imjd, fmjd,1.05)) { return(-1); }
+
+    /* Calc phase, phase step */
+    /* NOTE: Starting sample phase is computed for the middle
+     * of the first sample, assuming input fmjd refers to 
+     * the rising edge of the first sample given
+     */
+    double dphase=0.0;
+    double phase = psr_phase(pc, imjd, fmjd + tsamp/2.0/86400.0, NULL, NULL);
+    phase = fmod(phase, 1.0);
+    if (phase<0.0) { phase += 1.0; }
+    psr_phase(pc, imjd, fmjd_mid, &dphase, NULL);
+    dphase *= tsamp;
+
+    /* Fold em */
+    int i, ibin;
+    float *fptr;
+    for (i=0; i<nsamp; i++) {
+        ibin = (int)(phase * (double)f->nbin);
+        if (ibin<0) { ibin+=f->nbin; }
+        if (ibin>=f->nbin) { ibin-=f->nbin; }
+        fptr = &f->data[ibin*f->nchan*f->npol];
+        if (zero_check((const char *)&data[i*f->nchan*f->npol], 
+                    4*f->nchan*f->npol)==0) { 
+            vector_accumulate(fptr, 
+                    &data[i*f->nchan*f->npol],
+                    f->nchan*f->npol);
+            f->count[ibin]++;
+        }
+        phase += dphase;
+        if (phase>1.0) { phase -= 1.0; }
+    }
+
+    return(0);
+}
 int accumulate_folds(struct foldbuf *ftot, const struct foldbuf *f) {
     if (ftot->nbin!=f->nbin || ftot->nchan!=f->nchan || ftot->npol!=f->npol) {
         return(-1);
