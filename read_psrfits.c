@@ -347,10 +347,13 @@ int psrfits_read_subint(struct psrfits *pf) {
             fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, 
                     sub->bytes_per_subint/4,
                     NULL, sub->rawdata, NULL, status);
-        else
+        else {
             fits_read_col(pf->fptr, TBYTE, colnum, row, 1, 
                     sub->bytes_per_subint,
                     NULL, sub->rawdata, NULL, status);
+            if (hdr->nbits==2) pf_unpack_2bit_to_8bit(pf, numunsigned);
+            else if (hdr->nbits==4) pf_unpack_4bit_to_8bit(pf, numunsigned);
+	}
     } else if (mode==FOLD_MODE) {
         fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, sub->bytes_per_subint,
                       NULL, sub->data, NULL, status);
