@@ -494,14 +494,13 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
         pfo->rows_per_file = 10 * \
             (int) rint(0.1 * (cmd->filetime / pfi->sub.tsubint));
     } else if (cmd->filelenP) {
-        long long filelen;
-        int bytes_per_subint;
-        filelen = cmd->filelen * (1L<<30);  // In GB
-        bytes_per_subint = (pfo->hdr.nbits * pfo->hdr.nchan *
-                            pfo->hdr.npol * pfo->hdr.nsblk) / \
+        long long filelen = cmd->filelen * (1L<<30);  // In GB
+        long long lltmp = pfo->hdr.nsblk;
+        // lltmp is bytes_per_subint.  We calculate it  this way
+        // to prevent possible overflow in numerator below.
+        lltmp = (lltmp * pfo->hdr.nbits * pfo->hdr.nchan * pfo->hdr.npol) /
             (8 * si->chan_per_sub * cmd->dstime * (cmd->onlyIP ? 4 : 1));
-        pfo->rows_per_file = filelen / bytes_per_subint;
-        pfo->sub.bytes_per_subint = bytes_per_subint;
+        pfo->rows_per_file = (int) (filelen / lltmp);
     } else {  // By default, keep the filesize roughly constant
         pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub *
             cmd->dstime * (cmd->onlyIP ? 4 : 1) *
