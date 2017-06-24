@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_subband" 1 "17Jun16" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_subband" 1 "23Jun17" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -35,6 +35,7 @@ Partially de-disperse and subband PSRFITS search-mode data.
 [-tgtstd tgtstd]
 [-tgtavg tgtavg]
 [-onlyI]
+[-adjustlevels]
 [-weights wgtsfile]
 [-bandpass bandpassfile]
 [-o outputbasename]
@@ -95,6 +96,8 @@ Target avg for UNSIGNED data. If 0, set in code based on outbits,
 Default: `0.0'
 .IP -onlyI
 Only output total intensity data.
+.IP -adjustlevels
+Adjust output scales and offsets every row (default is only row 0).
 .IP -weights
 Filename containing ASCII list of channels and weights to use,
 .br

@@ -51,6 +51,8 @@ typedef struct s_Cmdline {
   int tgtavgC;
   /***** -onlyI: Only output total intensity data */
   char onlyIP;
+  /***** -adjustlevels: Adjust output scales and offsets every row (default is only row 0) */
+  char adjustlevelsP;
   /***** -weights: Filename containing ASCII list of channels and weights to use */
   char wgtsfileP;
   char* wgtsfile;
@@ -74,8 +76,6 @@ typedef struct s_Cmdline {
 extern char *Program;
 extern void usage(void);
 extern /*@shared*/Cmdline *parseCmdline(int argc, char **argv);
-
-extern void showOptionValues(void);
 
 #endif
 

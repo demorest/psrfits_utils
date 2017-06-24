@@ -28,6 +28,7 @@ Float -tgtstd tgtstd {Target stdev. If 0, set in code based on outbits} \
 Float -tgtavg tgtavg {Target avg for UNSIGNED data. If 0, set in code based on outbits} \
     -r 0.0 100000.0 -d 0.0
 Flag   -onlyI    onlyI    {Only output total intensity data}
+Flag   -adjustlevels adjustlevels {Adjust output scales and offsets every row (default is only row 0)}
 String -weights  wgtsfile {Filename containing ASCII list of channels and weights to use}
 String -bandpass bandpassfile {Filename containing ASCII list of channels, avgs, stdevs to use}
 String -o  outputbasename {Basename for the output files}
