@@ -323,7 +323,6 @@ int psrfits_write_subint(struct psrfits *pf) {
         if (hdr->onlyI)
             out_nbytes /= hdr->npol;
     }
-
     int numunsigned = hdr->npol;
     if (hdr->npol==4) {
         if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0)
