@@ -160,7 +160,6 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "FD_XYPH", &(hdr->fd_xyph), NULL, status);
     fits_read_key(pf->fptr, TINT, "FD_HAND", &(hdr->fd_hand), NULL, status);
     fits_read_key(pf->fptr, TINT, "BE_PHASE", &(hdr->be_phase), NULL, status);
-
     fits_read_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
     hdr->MJD_epoch = (long double)itmp;
     hdr->start_day = itmp;
@@ -170,10 +169,9 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
     hdr->MJD_epoch += dtmp/86400.0L;
     hdr->start_sec += dtmp;
-
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, 
             status);
-
+    
     // Move to first subint
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
 
@@ -190,6 +188,8 @@ int psrfits_open(struct psrfits *pf) {
     fits_read_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
     fits_read_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
     fits_read_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+    // By default any output will have the same number of bits as input
+    hdr->orig_nbits = hdr->nbits;
 
     if (mode==SEARCH_MODE) {
         long long lltmp = hdr->nsblk;  // Prevents a possible overflow in numerator below
@@ -293,42 +293,62 @@ int psrfits_read_subint(struct psrfits *pf) {
     // Hack to fix wrapping in coherent data
     if (pf->tot_rows > 0) {
         double delta_offs = sub->offs - last_offs;
-	double wrap_offs = 4294967296L * hdr->dt;
+        double wrap_offs = 4294967296L * hdr->dt;
         if (delta_offs < -0.5*wrap_offs) {
             sub->offs += wrap_offs;
-	    fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
+            fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
         }
     }
     fits_get_colnum(pf->fptr, 0, "LST_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "RA_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "DEC_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "GLON_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "GLAT_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "FD_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "POS_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "PAR_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "TEL_AZ", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "TEL_ZEN", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
+                      NULL, status);
+    else *status = 0;
     fits_get_colnum(pf->fptr, 0, "DAT_FREQ", &colnum, status);
     fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nchan, NULL, sub->dat_freqs,
             NULL, status);

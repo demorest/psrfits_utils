@@ -256,11 +256,13 @@ void un_scale_and_offset_data(struct psrfits *pf, int numunsigned)
 int get_current_row(struct psrfits *pfi, struct subband_info *si) {
     static int firsttime = 1, num_pad_blocks = 0;
     static double last_offs, row_duration;
+    static long double orig_epoch;
     double diff_offs, dnum_blocks;
 
     if (firsttime) {
         row_duration = pfi->sub.tsubint;
         last_offs = pfi->sub.offs-row_duration;
+        orig_epoch = pfi->hdr.MJD_epoch;
         firsttime = 0;
     }
 
@@ -276,6 +278,11 @@ int get_current_row(struct psrfits *pfi, struct subband_info *si) {
         // Read the current row of data
         psrfits_read_subint(pfi);
         diff_offs = pfi->sub.offs - last_offs;
+        // Handle if the file switched and the OFFS_SUB was reset
+        if ((diff_offs < 0.0) && (pfi->hdr.MJD_epoch != orig_epoch)) {
+            pfi->sub.offs += (pfi->hdr.MJD_epoch - orig_epoch) * 86400.0;
+            diff_offs = pfi->sub.offs - last_offs;
+        }
         if (si->userwgts) // Always overwrite if using user weights
             memcpy(pfi->sub.dat_weights, si->userwgts,
                    pfi->hdr.nchan * sizeof(float));
@@ -422,7 +429,7 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
     pfi->sub.dat_scales  = (float *)malloc(sizeof(float)
                                            * pfi->hdr.nchan * pfi->hdr.npol);
     pfi->sub.rawdata = (unsigned char *)malloc(pfi->sub.bytes_per_subint);
-    if (pfi->hdr.nbits!=8) {
+    if (pfi->hdr.nbits < 8) {
         pfi->sub.data = (unsigned char *)malloc(pfi->sub.bytes_per_subint *
                                                 (8 / pfi->hdr.nbits));
     } else {
@@ -476,20 +483,8 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
     // Now start setting values for the output arrays
     *pfo = *pfi;
 
-    // We are changing the number of bits in the data
-    if (pfi->hdr.nbits != cmd->outbits)
-        pfo->hdr.nbits = cmd->outbits;
-
-    {
-        long long lltmp = pfo->hdr.nsblk;
-        // lltmp is bytes_per_subint.  We calculate it  this way
-        // to prevent possible overflow in numerator below.
-        lltmp = (lltmp * pfo->hdr.nbits * pfo->hdr.nchan * pfo->hdr.npol) /
-            (8 * si->chan_per_sub * cmd->dstime * 
-             (cmd->onlyIP ? pfo->hdr.npol : 1));
-        pfo->sub.bytes_per_subint = lltmp;
-    }
-
+    // In case we are changing the number of bits in the data
+    pfo->hdr.nbits = cmd->outbits;
 
     // Determine the length of the outputfiles to use
     if (cmd->filetimeP) {
@@ -497,10 +492,16 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
             (int) rint(0.1 * (cmd->filetime / pfi->sub.tsubint));
     } else if (cmd->filelenP) {
         long long filelen = cmd->filelen * (1L<<30);  // In GB
-        pfo->rows_per_file = (int) (filelen / pfo->sub.bytes_per_subint);
+        long long lltmp = pfo->hdr.nsblk;
+        // lltmp is bytes_per_subint.  We calculate it this way
+        // to prevent possible overflow in numerator below.
+        lltmp = (lltmp * pfo->hdr.nbits * pfo->hdr.nchan * pfo->hdr.npol) /
+            (8 * si->chan_per_sub * cmd->dstime *
+             (cmd->onlyIP ? pfo->hdr.npol : 1));
+        pfo->rows_per_file = (int) (filelen / lltmp);
     } else {  // By default, keep the filesize roughly constant
         pfo->rows_per_file = pfi->rows_per_file * si->chan_per_sub *
-            cmd->dstime * (cmd->onlyIP ? 4 : 1) *
+            cmd->dstime * (cmd->onlyIP ? pfi->hdr.npol : 1) *
             pfi->hdr.nbits / pfo->hdr.nbits;
     }
 
@@ -529,8 +530,8 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
     pfo->hdr.onlyI = cmd->onlyIP;
     pfo->hdr.chan_dm = si->dm;
     pfo->sub.rawdata = (unsigned char *)malloc(si->nsub * si->npol * si->buflen);
-    if (pfo->hdr.nbits!=8) {
-        pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen *
+    if (pfo->hdr.nbits < 8) {
+        pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen /
                                                 (8 / pfo->hdr.nbits));
     } else {
         pfo->sub.data = pfo->sub.rawdata;

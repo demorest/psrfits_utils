@@ -318,11 +318,15 @@ int psrfits_write_subint(struct psrfits *pf) {
         out_nbytes = sub->bytes_per_subint / hdr->ds_freq_fact;
     else {
         out_nbytes = sub->bytes_per_subint / (hdr->ds_freq_fact * hdr->ds_time_fact);
-        if (hdr->nbits < 8)
-            out_nbytes /= (8 / hdr->nbits);
+        if (hdr->nbits < hdr->orig_nbits) {
+            out_nbytes /= (hdr->orig_nbits / hdr->nbits);
+        } else {
+            out_nbytes *= (hdr->nbits / hdr->orig_nbits);
+        }
         if (hdr->onlyI)
             out_nbytes /= hdr->npol;
     }
+
     int numunsigned = hdr->npol;
     if (hdr->npol==4) {
         if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0)
