@@ -17,7 +17,6 @@ extern void avg_std(float *x, int n, double *mean, double *std, int stride);
 extern void split_path_file(char *input, char **path, char **file);
 extern void get_stokes_I(struct psrfits *pf);
 extern void downsample_time(struct psrfits *pf);
-
 extern void pf_pack_8bit_to_2bit(struct psrfits *pf, int numunsigned);
 extern void pf_pack_8bit_to_4bit(struct psrfits *pf, int numunsigned);
 extern void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned);
@@ -531,7 +530,7 @@ void init_subbanding(struct psrfits *pfi, struct psrfits *pfo,
     pfo->hdr.chan_dm = si->dm;
     pfo->sub.rawdata = (unsigned char *)malloc(si->nsub * si->npol * si->buflen);
     if (pfo->hdr.nbits < 8) {
-        pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen /
+        pfo->sub.data = (unsigned char *)malloc(si->nsub * si->npol * si->buflen *
                                                 (8 / pfo->hdr.nbits));
     } else {
         pfo->sub.data = pfo->sub.rawdata;
