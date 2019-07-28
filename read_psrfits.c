@@ -303,52 +303,82 @@ int psrfits_read_subint(struct psrfits *pf) {
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->lst = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "RA_SUB", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->ra = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "DEC_SUB", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->dec = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "GLON_SUB", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->glon = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "GLAT_SUB", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->glat = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "FD_ANG", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->feed_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "POS_ANG", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->pos_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "PAR_ANG", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->par_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "TEL_AZ", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->tel_az = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "TEL_ZEN", &colnum, status);
     if (*status==0) // This is not a crucial column
         fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
                       NULL, status);
-    else *status = 0;
+    else {
+        sub->tel_zen = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "DAT_FREQ", &colnum, status);
     fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nchan, NULL, sub->dat_freqs,
             NULL, status);
