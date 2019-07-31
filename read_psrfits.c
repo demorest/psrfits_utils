@@ -10,6 +10,15 @@ extern void unpack_2bit_to_8bit_unsigned(unsigned char *indata,
 extern void unpack_4bit_to_8bit_unsigned(unsigned char *indata,
                                          unsigned char *outdata, int N);
 
+#define check_read_status(name) {                                          \
+        if (*status) {                                                     \
+            fits_get_errstatus(*status, err_text);                         \
+            printf("Error %d reading %s : %s\n", *status, name, err_text); \
+            *status=0;                                                     \
+        }                                                                  \
+    }
+
+
 int is_search_PSRFITS(char *filename)
 // Return 1 if the file described by filename is a PSRFITS file
 // Return 0 otherwise.
@@ -79,7 +88,7 @@ int psrfits_open(struct psrfits *pf) {
 
     int itmp;
     double dtmp;
-    char ctmp[256];
+    char ctmp[256], err_text[81];
 
     struct hdrinfo *hdr = &(pf->hdr);
     struct subint  *sub = &(pf->sub);
@@ -114,6 +123,7 @@ int psrfits_open(struct psrfits *pf) {
 
     // Figure out obs mode
     fits_read_key(pf->fptr, TSTRING, "OBS_MODE", hdr->obs_mode, NULL, status);
+    check_read_status("OBS_MODE");
     int mode = psrfits_obs_mode(hdr->obs_mode);
 
     // Set the downsampling stuff to default values
@@ -128,66 +138,107 @@ int psrfits_open(struct psrfits *pf) {
 
     // Read some stuff
     fits_read_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope, NULL, status);
+    check_read_status("TELESCOP");
     fits_read_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
+    check_read_status("OBSERVER");
     fits_read_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
+    check_read_status("PROJID");
     fits_read_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
+    check_read_status("FRONTEND");
     fits_read_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
+    check_read_status("BACKEND");
     fits_read_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
+    check_read_status("FD_POLN");
     fits_read_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
+    check_read_status("DATE-OBS");
     fits_read_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
+    check_read_status("OBSFREQ");
     fits_read_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
+    check_read_status("OBSBW");
     fits_read_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
+    check_read_status("OBSNCHAN");
     hdr->orig_df = hdr->BW / hdr->orig_nchan;
     fits_read_key(pf->fptr, TDOUBLE, "CHAN_DM", &(hdr->chan_dm), NULL, status);
     if (*status==KEY_NO_EXIST) { hdr->chan_dm=0.0; *status=0; }
+    check_read_status("CHAN_DM");
     fits_read_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
+    check_read_status("SRC_NAME");
     fits_read_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
+    check_read_status("TRK_MODE");
     // TODO warn if not TRACK?
     fits_read_key(pf->fptr, TSTRING, "RA", hdr->ra_str, NULL, status);
+    check_read_status("RA");
     fits_read_key(pf->fptr, TSTRING, "DEC", hdr->dec_str, NULL, status);
+    check_read_status("DEC");
     fits_read_key(pf->fptr, TDOUBLE, "BMAJ", &(hdr->beam_FWHM), NULL, status);
+    check_read_status("BMAJ");
     fits_read_key(pf->fptr, TSTRING, "CAL_MODE", hdr->cal_mode, NULL, status);
+    check_read_status("CAL_MODE");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_FREQ", &(hdr->cal_freq), NULL, 
             status);
+    check_read_status("CAL_FREQ");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_DCYC", &(hdr->cal_dcyc), NULL, 
             status);
+    check_read_status("CAL_DCYC");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_PHS", &(hdr->cal_phs), NULL, status);
+    check_read_status("CAL_PHS");
     fits_read_key(pf->fptr, TSTRING, "FD_MODE", hdr->feed_mode, NULL, status);
+    check_read_status("FD_MODE");
     fits_read_key(pf->fptr, TDOUBLE, "FA_REQ", &(hdr->feed_angle), NULL, 
             status);
+    check_read_status("FA_REQ");
     fits_read_key(pf->fptr, TDOUBLE, "SCANLEN", &(hdr->scanlen), NULL, status);
+    check_read_status("SCANLEN");
     fits_read_key(pf->fptr, TDOUBLE, "FD_SANG", &(hdr->fd_sang), NULL, status);
+    check_read_status("FD_SANG");
     fits_read_key(pf->fptr, TDOUBLE, "FD_XYPH", &(hdr->fd_xyph), NULL, status);
+    check_read_status("FD_XYPH");
     fits_read_key(pf->fptr, TINT, "FD_HAND", &(hdr->fd_hand), NULL, status);
+    check_read_status("FD_HAND");
     fits_read_key(pf->fptr, TINT, "BE_PHASE", &(hdr->be_phase), NULL, status);
+    check_read_status("BE_PHASE");
     fits_read_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
+    check_read_status("STT_IMJD");
     hdr->MJD_epoch = (long double)itmp;
     hdr->start_day = itmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_SMJD", &dtmp, NULL, status);
+    check_read_status("STT_SMJD");
     hdr->MJD_epoch += dtmp/86400.0L;
     hdr->start_sec = dtmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
+    check_read_status("STT_OFFS");
     hdr->MJD_epoch += dtmp/86400.0L;
     hdr->start_sec += dtmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, 
             status);
+    check_read_status("STT_LST");
     
     // Move to first subint
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
+    check_read_status("SUBINT");
 
     // Read some more stuff
     fits_read_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
+    check_read_status("NPOL");
     fits_read_key(pf->fptr, TSTRING, "POL_TYPE", &(hdr->poln_order), NULL, status);
+    check_read_status("POL_TYPE");
     if (strncmp(hdr->poln_order, "AA+BB", 6)==0) hdr->summed_polns=1;
     else hdr->summed_polns=0;
     fits_read_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
+    check_read_status("TBIN");
     fits_read_key(pf->fptr, TINT, "NBIN", &(hdr->nbin), NULL, status);
+    check_read_status("NBIN");
     fits_read_key(pf->fptr, TINT, "NSUBOFFS", &(hdr->offset_subint), NULL, 
             status);
+    check_read_status("NSUBOFFS");
     fits_read_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
+    check_read_status("NCHAN");
     fits_read_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
+    check_read_status("CHAN_BW");
     fits_read_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
+    check_read_status("NSBLK");
     fits_read_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+    check_read_status("NBITS");
     // By default any output will have the same number of bits as input
     hdr->orig_nbits = hdr->nbits;
 
@@ -203,6 +254,7 @@ int psrfits_open(struct psrfits *pf) {
     // Init counters
     pf->rownum = 1;
     fits_read_key(pf->fptr, TINT, "NAXIS2", &(pf->rows_per_file), NULL, status);
+    check_read_status("NAXIS2");
 
     return *status;
 }
