@@ -241,17 +241,27 @@ void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned)
 void get_stokes_I(struct psrfits *pf)
 /* Move the Stokes I in place so that it is consecutive in the array */
 {
-    int ii;
+    int ii, skip = 0, reorder = 0;
     float *data;
     struct hdrinfo *hdr = &(pf->hdr);
     const int out_nchan = hdr->nchan / hdr->ds_freq_fact;
 
-    // In this mode, average the polns first to make it like IQUV
     if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0) {
+        skip = 4;
+        reorder = 1;
+    } else if (strncmp(hdr->poln_order, "IQUV", 4)==0) {
+        skip = 4;
+    } else if (strncmp(hdr->poln_order, "AABB", 4)==0) {
+        skip = 2;
+        reorder = 1;
+    }
+
+    // In this mode, average the polns first to make it like IQUV
+    if (reorder) {
         float *bbptr;
         int jj;
         for (ii = 0 ; ii < hdr->nsblk ; ii++) {
-            data = pf->sub.fdata + ii * out_nchan * 4; // 4 polns
+            data = pf->sub.fdata + ii * out_nchan * skip; // skip polns
             bbptr = data + out_nchan;
             for (jj = 0 ; jj < out_nchan ; jj++, data++, bbptr++)
                 *data = 0.5 * (*data + *bbptr); // Average AA and BB polns
@@ -260,8 +270,8 @@ void get_stokes_I(struct psrfits *pf)
     data = pf->sub.fdata;
     // Start from 1 since we don't need to move the 1st spectra
     for (ii = 1 ; ii < hdr->nsblk ; ii++) {
-        memcpy(data + ii * out_nchan, 
-               data + ii * 4 * out_nchan, 
+        memcpy(data + ii * out_nchan,
+               data + ii * skip * out_nchan,
                out_nchan * sizeof(float));
     }
 }
@@ -289,7 +299,7 @@ void downsample_time(struct psrfits *pf)
     // Iterate over the output times
     for (ii = 0 ; ii < out_nsblk ; ii++) {
         // Initiaize the summation
-        for (jj = 0 ; jj < out_nchan ; jj++) 
+        for (jj = 0 ; jj < out_nchan ; jj++)
             tmpspec[jj] = 0.0;
         // Add up the samples in time in the tmp array
         for (jj = 0 ; jj < dsfact ; jj++) {
@@ -316,7 +326,7 @@ void guppi_update_ds_params(struct psrfits *pf)
     int out_npol = hdr->npol;
     if (hdr->onlyI) out_npol = 1;
     int out_nchan = hdr->nchan / hdr->ds_freq_fact;
- 
+
     if (hdr->ds_freq_fact > 1) {
         int ii;
         double dtmp;

@@ -741,7 +741,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Output only Stokes I (in place via floats)
-        if (pfo.hdr.onlyI && pfo.hdr.npol==4)
+        if (pfo.hdr.onlyI && (pfo.hdr.npol==4 || pfo.hdr.npol==2))
             get_stokes_I(&pfo);
 
         // Downsample in time (in place via floats)
