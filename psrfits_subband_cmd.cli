@@ -34,4 +34,4 @@ String -bandpass bandpassfile {Filename containing ASCII list of channels, avgs,
 String -o  outputbasename {Basename for the output files}
 # Rest of command line:
 Rest infile {Input file name(s) of the PSRFITs datafiles} \
-        -c 1 2000
+        -c 1 10000

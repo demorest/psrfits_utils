@@ -815,8 +815,8 @@ usage(void)
   fprintf(stderr,"%s","               -o: Basename for the output files\n");
   fprintf(stderr,"%s","                   1 char* value\n");
   fprintf(stderr,"%s","           infile: Input file name(s) of the PSRFITs datafiles\n");
-  fprintf(stderr,"%s","                   1...2000 values\n");
-  fprintf(stderr,"%s","  version: 23Jun17\n");
+  fprintf(stderr,"%s","                   1...10000 values\n");
+  fprintf(stderr,"%s","  version: 05Nov19\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -987,8 +987,8 @@ parseCmdline(int argc, char **argv)
             Program);
     exit(EXIT_FAILURE);
   }
-  if( 2000<cmd.argc ) {
-    fprintf(stderr, "%s: there should be at most 2000 non-option argument(s)\n",
+  if( 10000<cmd.argc ) {
+    fprintf(stderr, "%s: there should be at most 10000 non-option argument(s)\n",
             Program);
     exit(EXIT_FAILURE);
   }
