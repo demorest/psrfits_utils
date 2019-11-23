@@ -11,7 +11,7 @@
 .\" it edited by clig, remove the respective pair of cligPart-lines.
 .\"
 .\" cligPart TITLE
-.TH "psrfits_subband" 1 "04Mar11" "Clig-manuals" "Programmer's Manual"
+.TH "psrfits_subband" 1 "05Nov19" "Clig-manuals" "Programmer's Manual"
 .\" cligPart TITLE end
 
 .\" cligPart NAME
@@ -29,11 +29,15 @@ Partially de-disperse and subband PSRFITS search-mode data.
 [-dstime dstime]
 [-startfile startfile]
 [-numfiles numfiles]
+[-outbits outbits]
 [-filetime filetime]
 [-filelen filelen]
-[-bytes]
+[-tgtstd tgtstd]
+[-tgtavg tgtavg]
 [-onlyI]
+[-adjustlevels]
 [-weights wgtsfile]
+[-bandpass bandpassfile]
 [-o outputbasename]
 infile ...
 .\" cligPart SYNOPSIS end
@@ -66,6 +70,10 @@ Default: `1'
 Number of files to process,
 .br
 1 Int value between 1 and 2000.
+.IP -outbits
+Number of output bits desired,
+.br
+1 Int value between 2 and 8.
 .IP -filetime
 Desired length of the resulting files in sec,
 .br
@@ -74,12 +82,28 @@ Desired length of the resulting files in sec,
 Desired length of the resulting files in GB,
 .br
 1 Float value between 0.0 and 1000.0.
-.IP -bytes
-Make the raw data unsigned chars instead of signed shorts.
+.IP -tgtstd
+Target stdev. If 0, set in code based on outbits,
+.br
+1 Float value between 0.0 and 100000.0.
+.br
+Default: `0.0'
+.IP -tgtavg
+Target avg for UNSIGNED data. If 0, set in code based on outbits,
+.br
+1 Float value between 0.0 and 100000.0.
+.br
+Default: `0.0'
 .IP -onlyI
 Only output total intensity data.
+.IP -adjustlevels
+Adjust output scales and offsets every row (default is only row 0).
 .IP -weights
 Filename containing ASCII list of channels and weights to use,
+.br
+1 String value
+.IP -bandpass
+Filename containing ASCII list of channels, avgs, stdevs to use,
 .br
 1 String value
 .IP -o

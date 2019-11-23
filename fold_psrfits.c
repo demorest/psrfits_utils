@@ -370,7 +370,7 @@ int main(int argc, char *argv[]) {
             // 8-or-more-bit raw data. No need for conversion
             pf.sub.rawdata = pf.sub.data;
         } else {
-            pf.sub.rawdata = (char *)malloc(sizeof(char)*pf.sub.bytes_per_subint);
+            pf.sub.rawdata = (char *)malloc(sizeof(char) * pf.sub.bytes_per_subint);
         }
         rv = psrfits_read_subint(&pf);
         if (rv) { 
@@ -562,6 +562,12 @@ int main(int argc, char *argv[]) {
                     100.0 * (float)(pf.rownum-1)/(float)pf.rows_per_file);
             fflush(stdout);
         }
+
+        /* Free the allocated memory if needs be */
+        if (pf.hdr.nbits != 8) {
+            free(pf.sub.rawdata);
+        }
+
     }
 
     /* Join any running threads */

@@ -3,6 +3,21 @@
 #include <string.h>
 #include "psrfits.h"
 
+extern void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned);
+extern void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned);
+extern void unpack_2bit_to_8bit_unsigned(unsigned char *indata,
+                                         unsigned char *outdata, int N);
+extern void unpack_4bit_to_8bit_unsigned(unsigned char *indata,
+                                         unsigned char *outdata, int N);
+
+#define check_read_status(name) {                                          \
+        if (*status) {                                                     \
+            fits_get_errstatus(*status, err_text);                         \
+            printf("Error %d reading %s : %s\n", *status, name, err_text); \
+            *status=0;                                                     \
+        }                                                                  \
+    }
+
 
 int is_search_PSRFITS(char *filename)
 // Return 1 if the file described by filename is a PSRFITS file
@@ -73,7 +88,7 @@ int psrfits_open(struct psrfits *pf) {
 
     int itmp;
     double dtmp;
-    char ctmp[256];
+    char ctmp[256], err_text[81];
 
     struct hdrinfo *hdr = &(pf->hdr);
     struct subint  *sub = &(pf->sub);
@@ -108,6 +123,7 @@ int psrfits_open(struct psrfits *pf) {
 
     // Figure out obs mode
     fits_read_key(pf->fptr, TSTRING, "OBS_MODE", hdr->obs_mode, NULL, status);
+    check_read_status("OBS_MODE");
     int mode = psrfits_obs_mode(hdr->obs_mode);
 
     // Set the downsampling stuff to default values
@@ -122,68 +138,109 @@ int psrfits_open(struct psrfits *pf) {
 
     // Read some stuff
     fits_read_key(pf->fptr, TSTRING, "TELESCOP", hdr->telescope, NULL, status);
+    check_read_status("TELESCOP");
     fits_read_key(pf->fptr, TSTRING, "OBSERVER", hdr->observer, NULL, status);
+    check_read_status("OBSERVER");
     fits_read_key(pf->fptr, TSTRING, "PROJID", hdr->project_id, NULL, status);
+    check_read_status("PROJID");
     fits_read_key(pf->fptr, TSTRING, "FRONTEND", hdr->frontend, NULL, status);
+    check_read_status("FRONTEND");
     fits_read_key(pf->fptr, TSTRING, "BACKEND", hdr->backend, NULL, status);
+    check_read_status("BACKEND");
     fits_read_key(pf->fptr, TSTRING, "FD_POLN", hdr->poln_type, NULL, status);
+    check_read_status("FD_POLN");
     fits_read_key(pf->fptr, TSTRING, "DATE-OBS", hdr->date_obs, NULL, status);
+    check_read_status("DATE-OBS");
     fits_read_key(pf->fptr, TDOUBLE, "OBSFREQ", &(hdr->fctr), NULL, status);
+    check_read_status("OBSFREQ");
     fits_read_key(pf->fptr, TDOUBLE, "OBSBW", &(hdr->BW), NULL, status);
+    check_read_status("OBSBW");
     fits_read_key(pf->fptr, TINT, "OBSNCHAN", &(hdr->orig_nchan), NULL, status);
+    check_read_status("OBSNCHAN");
     hdr->orig_df = hdr->BW / hdr->orig_nchan;
     fits_read_key(pf->fptr, TDOUBLE, "CHAN_DM", &(hdr->chan_dm), NULL, status);
     if (*status==KEY_NO_EXIST) { hdr->chan_dm=0.0; *status=0; }
+    check_read_status("CHAN_DM");
     fits_read_key(pf->fptr, TSTRING, "SRC_NAME", hdr->source, NULL, status);
+    check_read_status("SRC_NAME");
     fits_read_key(pf->fptr, TSTRING, "TRK_MODE", hdr->track_mode, NULL, status);
+    check_read_status("TRK_MODE");
     // TODO warn if not TRACK?
     fits_read_key(pf->fptr, TSTRING, "RA", hdr->ra_str, NULL, status);
+    check_read_status("RA");
     fits_read_key(pf->fptr, TSTRING, "DEC", hdr->dec_str, NULL, status);
+    check_read_status("DEC");
     fits_read_key(pf->fptr, TDOUBLE, "BMAJ", &(hdr->beam_FWHM), NULL, status);
+    check_read_status("BMAJ");
     fits_read_key(pf->fptr, TSTRING, "CAL_MODE", hdr->cal_mode, NULL, status);
+    check_read_status("CAL_MODE");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_FREQ", &(hdr->cal_freq), NULL, 
             status);
+    check_read_status("CAL_FREQ");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_DCYC", &(hdr->cal_dcyc), NULL, 
             status);
+    check_read_status("CAL_DCYC");
     fits_read_key(pf->fptr, TDOUBLE, "CAL_PHS", &(hdr->cal_phs), NULL, status);
+    check_read_status("CAL_PHS");
     fits_read_key(pf->fptr, TSTRING, "FD_MODE", hdr->feed_mode, NULL, status);
+    check_read_status("FD_MODE");
     fits_read_key(pf->fptr, TDOUBLE, "FA_REQ", &(hdr->feed_angle), NULL, 
             status);
+    check_read_status("FA_REQ");
     fits_read_key(pf->fptr, TDOUBLE, "SCANLEN", &(hdr->scanlen), NULL, status);
+    check_read_status("SCANLEN");
     fits_read_key(pf->fptr, TDOUBLE, "FD_SANG", &(hdr->fd_sang), NULL, status);
+    check_read_status("FD_SANG");
     fits_read_key(pf->fptr, TDOUBLE, "FD_XYPH", &(hdr->fd_xyph), NULL, status);
+    check_read_status("FD_XYPH");
     fits_read_key(pf->fptr, TINT, "FD_HAND", &(hdr->fd_hand), NULL, status);
+    check_read_status("FD_HAND");
     fits_read_key(pf->fptr, TINT, "BE_PHASE", &(hdr->be_phase), NULL, status);
-
+    check_read_status("BE_PHASE");
     fits_read_key(pf->fptr, TINT, "STT_IMJD", &itmp, NULL, status);
+    check_read_status("STT_IMJD");
     hdr->MJD_epoch = (long double)itmp;
     hdr->start_day = itmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_SMJD", &dtmp, NULL, status);
+    check_read_status("STT_SMJD");
     hdr->MJD_epoch += dtmp/86400.0L;
     hdr->start_sec = dtmp;
     fits_read_key(pf->fptr, TDOUBLE, "STT_OFFS", &dtmp, NULL, status);
+    check_read_status("STT_OFFS");
     hdr->MJD_epoch += dtmp/86400.0L;
     hdr->start_sec += dtmp;
-
     fits_read_key(pf->fptr, TDOUBLE, "STT_LST", &(hdr->start_lst), NULL, 
             status);
-
+    check_read_status("STT_LST");
+    
     // Move to first subint
     fits_movnam_hdu(pf->fptr, BINARY_TBL, "SUBINT", 0, status);
+    check_read_status("SUBINT");
 
     // Read some more stuff
     fits_read_key(pf->fptr, TINT, "NPOL", &(hdr->npol), NULL, status);
+    check_read_status("NPOL");
     fits_read_key(pf->fptr, TSTRING, "POL_TYPE", &(hdr->poln_order), NULL, status);
+    check_read_status("POL_TYPE");
     if (strncmp(hdr->poln_order, "AA+BB", 6)==0) hdr->summed_polns=1;
     else hdr->summed_polns=0;
     fits_read_key(pf->fptr, TDOUBLE, "TBIN", &(hdr->dt), NULL, status);
+    check_read_status("TBIN");
     fits_read_key(pf->fptr, TINT, "NBIN", &(hdr->nbin), NULL, status);
+    check_read_status("NBIN");
     fits_read_key(pf->fptr, TINT, "NSUBOFFS", &(hdr->offset_subint), NULL, 
             status);
+    check_read_status("NSUBOFFS");
     fits_read_key(pf->fptr, TINT, "NCHAN", &(hdr->nchan), NULL, status);
+    check_read_status("NCHAN");
     fits_read_key(pf->fptr, TDOUBLE, "CHAN_BW", &(hdr->df), NULL, status);
+    check_read_status("CHAN_BW");
     fits_read_key(pf->fptr, TINT, "NSBLK", &(hdr->nsblk), NULL, status);
+    check_read_status("NSBLK");
     fits_read_key(pf->fptr, TINT, "NBITS", &(hdr->nbits), NULL, status);
+    check_read_status("NBITS");
+    // By default any output will have the same number of bits as input
+    hdr->orig_nbits = hdr->nbits;
 
     if (mode==SEARCH_MODE) {
         long long lltmp = hdr->nsblk;  // Prevents a possible overflow in numerator below
@@ -197,6 +254,7 @@ int psrfits_open(struct psrfits *pf) {
     // Init counters
     pf->rownum = 1;
     fits_read_key(pf->fptr, TINT, "NAXIS2", &(pf->rows_per_file), NULL, status);
+    check_read_status("NAXIS2");
 
     return *status;
 }
@@ -268,6 +326,13 @@ int psrfits_read_subint(struct psrfits *pf) {
     int nchan = hdr->nchan;
     int nivals = hdr->nchan * hdr->npol;
     int row = pf->rownum;
+    int numunsigned = hdr->npol;
+    if (hdr->npol==4) {
+        if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0)
+            numunsigned = 2;
+        if (strncmp(hdr->poln_order, "IQUV", 4)==0)
+            numunsigned = 1;
+    }
 
     // TODO: bad! really need to base this on column names
     fits_get_colnum(pf->fptr, 0, "TSUBINT", &colnum, status);
@@ -280,42 +345,92 @@ int psrfits_read_subint(struct psrfits *pf) {
     // Hack to fix wrapping in coherent data
     if (pf->tot_rows > 0) {
         double delta_offs = sub->offs - last_offs;
-	double wrap_offs = 4294967296L * hdr->dt;
+        double wrap_offs = 4294967296L * hdr->dt;
         if (delta_offs < -0.5*wrap_offs) {
             sub->offs += wrap_offs;
-	    fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
+            fprintf(stderr, "Warning: detected likely counter wrap, attempting to fix it.\n");
         }
     }
     fits_get_colnum(pf->fptr, 0, "LST_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->lst),
+                      NULL, status);
+    else {
+        sub->lst = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "RA_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->ra),
+                      NULL, status);
+    else {
+        sub->ra = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "DEC_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->dec),
+                      NULL, status);
+    else {
+        sub->dec = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "GLON_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glon),
+                      NULL, status);
+    else {
+        sub->glon = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "GLAT_SUB", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->glat),
+                      NULL, status);
+    else {
+        sub->glat = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "FD_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->feed_ang),
+                      NULL, status);
+    else {
+        sub->feed_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "POS_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->pos_ang),
+                      NULL, status);
+    else {
+        sub->pos_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "PAR_ANG", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->par_ang),
+                      NULL, status);
+    else {
+        sub->par_ang = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "TEL_AZ", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_az),
+                      NULL, status);
+    else {
+        sub->tel_az = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "TEL_ZEN", &colnum, status);
-    fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
-            NULL, status);
+    if (*status==0) // This is not a crucial column
+        fits_read_col(pf->fptr, TDOUBLE, colnum, row, 1, 1, NULL, &(sub->tel_zen),
+                      NULL, status);
+    else {
+        sub->tel_zen = 0.0;
+        *status = 0;
+    }
     fits_get_colnum(pf->fptr, 0, "DAT_FREQ", &colnum, status);
     fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, nchan, NULL, sub->dat_freqs,
             NULL, status);
@@ -334,11 +449,13 @@ int psrfits_read_subint(struct psrfits *pf) {
             fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, 
                     sub->bytes_per_subint/4,
                     NULL, sub->rawdata, NULL, status);
-        else
+        else {
             fits_read_col(pf->fptr, TBYTE, colnum, row, 1, 
                     sub->bytes_per_subint,
                     NULL, sub->rawdata, NULL, status);
-        if (hdr->nbits==4) pf_4bit_to_8bit(pf);
+            if (hdr->nbits==2) pf_unpack_2bit_to_8bit(pf, numunsigned);
+            else if (hdr->nbits==4) pf_unpack_4bit_to_8bit(pf, numunsigned);
+	}
     } else if (mode==FOLD_MODE) {
         fits_read_col(pf->fptr, TFLOAT, colnum, row, 1, sub->bytes_per_subint,
                       NULL, sub->data, NULL, status);
@@ -393,7 +510,7 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned,
     float *scales = (float *)malloc(sizeof(float) * nivals);
     unsigned char *buffer = (unsigned char *)malloc(numdata);
     unsigned char *rawbuffer = buffer;
-    if (hdr->nbits==4) {
+    if (hdr->nbits==4 || hdr->nbits==2) {
         rawbuffer = (unsigned char *)malloc(bytes_to_read);
     }
 
@@ -408,7 +525,12 @@ int psrfits_read_part_DATA(struct psrfits *pf, int N, int numunsigned,
     fits_read_col(pf->fptr, TBYTE, colnum, pf->rownum, 1, bytes_to_read,
                   NULL, rawbuffer, NULL, status);
     if (hdr->nbits==4) {
-        convert_4bit_to_8bit(rawbuffer, (unsigned char *)buffer, numdata);
+        unpack_4bit_to_8bit_unsigned(rawbuffer,
+                                     (unsigned char *)buffer, numdata);
+        free(rawbuffer);
+    } else if (hdr->nbits==2) {
+        unpack_2bit_to_8bit_unsigned(rawbuffer,
+                                     (unsigned char *)buffer, numdata);
         free(rawbuffer);
     }
     

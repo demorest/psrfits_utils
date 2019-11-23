@@ -42,6 +42,10 @@ static Cmdline cmd = {
   /* numfilesP = */ 0,
   /* numfiles = */ (int)0,
   /* numfilesC = */ 0,
+  /***** -outbits: Number of output bits desired */
+  /* outbitsP = */ 0,
+  /* outbits = */ (int)0,
+  /* outbitsC = */ 0,
   /***** -filetime: Desired length of the resulting files in sec */
   /* filetimeP = */ 0,
   /* filetime = */ (float)0,
@@ -50,14 +54,26 @@ static Cmdline cmd = {
   /* filelenP = */ 0,
   /* filelen = */ (float)0,
   /* filelenC = */ 0,
-  /***** -bytes: Make the raw data unsigned chars instead of signed shorts */
-  /* bytesP = */ 0,
+  /***** -tgtstd: Target stdev. If 0, set in code based on outbits */
+  /* tgtstdP = */ 1,
+  /* tgtstd = */ 0.0,
+  /* tgtstdC = */ 1,
+  /***** -tgtavg: Target avg for UNSIGNED data. If 0, set in code based on outbits */
+  /* tgtavgP = */ 1,
+  /* tgtavg = */ 0.0,
+  /* tgtavgC = */ 1,
   /***** -onlyI: Only output total intensity data */
   /* onlyIP = */ 0,
+  /***** -adjustlevels: Adjust output scales and offsets every row (default is only row 0) */
+  /* adjustlevelsP = */ 0,
   /***** -weights: Filename containing ASCII list of channels and weights to use */
   /* wgtsfileP = */ 0,
   /* wgtsfile = */ (char*)0,
   /* wgtsfileC = */ 0,
+  /***** -bandpass: Filename containing ASCII list of channels, avgs, stdevs to use */
+  /* bandpassfileP = */ 0,
+  /* bandpassfile = */ (char*)0,
+  /* bandpassfileC = */ 0,
   /***** -o: Basename for the output files */
   /* outputbasenameP = */ 0,
   /* outputbasename = */ (char*)0,
@@ -761,36 +777,46 @@ catArgv(int argc, char **argv)
 void
 usage(void)
 {
-  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-startfile startfile] [-numfiles numfiles] [-filetime filetime] [-filelen filelen] [-bytes] [-onlyI] [-weights wgtsfile] [-o outputbasename] [--] infile ...\n");
+  fprintf(stderr,"%s","   [-dm dm] [-nsub nsub] [-dstime dstime] [-startfile startfile] [-numfiles numfiles] [-outbits outbits] [-filetime filetime] [-filelen filelen] [-tgtstd tgtstd] [-tgtavg tgtavg] [-onlyI] [-adjustlevels] [-weights wgtsfile] [-bandpass bandpassfile] [-o outputbasename] [--] infile ...\n");
   fprintf(stderr,"%s","      \n");
   fprintf(stderr,"%s","      Partially de-disperse and subband PSRFITS search-mode data.\n");
   fprintf(stderr,"%s","      \n");
-  fprintf(stderr,"%s","           -dm: Dispersion measure to use for the subband de-dispersion\n");
-  fprintf(stderr,"%s","                1 double value between 0.0 and 10000.0\n");
-  fprintf(stderr,"%s","                default: `0.0'\n");
-  fprintf(stderr,"%s","         -nsub: Number of output frequency subbands\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 4096\n");
-  fprintf(stderr,"%s","       -dstime: Power-of-2 number of samples to average in time\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 128\n");
-  fprintf(stderr,"%s","                default: `1'\n");
-  fprintf(stderr,"%s","    -startfile: Starting file number of sequence\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
-  fprintf(stderr,"%s","                default: `1'\n");
-  fprintf(stderr,"%s","     -numfiles: Number of files to process\n");
-  fprintf(stderr,"%s","                1 int value between 1 and 2000\n");
-  fprintf(stderr,"%s","     -filetime: Desired length of the resulting files in sec\n");
-  fprintf(stderr,"%s","                1 float value between 0.0 and 100000.0\n");
-  fprintf(stderr,"%s","      -filelen: Desired length of the resulting files in GB\n");
-  fprintf(stderr,"%s","                1 float value between 0.0 and 1000.0\n");
-  fprintf(stderr,"%s","        -bytes: Make the raw data unsigned chars instead of signed shorts\n");
-  fprintf(stderr,"%s","        -onlyI: Only output total intensity data\n");
-  fprintf(stderr,"%s","      -weights: Filename containing ASCII list of channels and weights to use\n");
-  fprintf(stderr,"%s","                1 char* value\n");
-  fprintf(stderr,"%s","            -o: Basename for the output files\n");
-  fprintf(stderr,"%s","                1 char* value\n");
-  fprintf(stderr,"%s","        infile: Input file name(s) of the PSRFITs datafiles\n");
-  fprintf(stderr,"%s","                1...2000 values\n");
-  fprintf(stderr,"%s","  version: 04Mar11\n");
+  fprintf(stderr,"%s","              -dm: Dispersion measure to use for the subband de-dispersion\n");
+  fprintf(stderr,"%s","                   1 double value between 0.0 and 10000.0\n");
+  fprintf(stderr,"%s","                   default: `0.0'\n");
+  fprintf(stderr,"%s","            -nsub: Number of output frequency subbands\n");
+  fprintf(stderr,"%s","                   1 int value between 1 and 4096\n");
+  fprintf(stderr,"%s","          -dstime: Power-of-2 number of samples to average in time\n");
+  fprintf(stderr,"%s","                   1 int value between 1 and 128\n");
+  fprintf(stderr,"%s","                   default: `1'\n");
+  fprintf(stderr,"%s","       -startfile: Starting file number of sequence\n");
+  fprintf(stderr,"%s","                   1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","                   default: `1'\n");
+  fprintf(stderr,"%s","        -numfiles: Number of files to process\n");
+  fprintf(stderr,"%s","                   1 int value between 1 and 2000\n");
+  fprintf(stderr,"%s","         -outbits: Number of output bits desired\n");
+  fprintf(stderr,"%s","                   1 int value between 2 and 8\n");
+  fprintf(stderr,"%s","        -filetime: Desired length of the resulting files in sec\n");
+  fprintf(stderr,"%s","                   1 float value between 0.0 and 100000.0\n");
+  fprintf(stderr,"%s","         -filelen: Desired length of the resulting files in GB\n");
+  fprintf(stderr,"%s","                   1 float value between 0.0 and 1000.0\n");
+  fprintf(stderr,"%s","          -tgtstd: Target stdev. If 0, set in code based on outbits\n");
+  fprintf(stderr,"%s","                   1 float value between 0.0 and 100000.0\n");
+  fprintf(stderr,"%s","                   default: `0.0'\n");
+  fprintf(stderr,"%s","          -tgtavg: Target avg for UNSIGNED data. If 0, set in code based on outbits\n");
+  fprintf(stderr,"%s","                   1 float value between 0.0 and 100000.0\n");
+  fprintf(stderr,"%s","                   default: `0.0'\n");
+  fprintf(stderr,"%s","           -onlyI: Only output total intensity data\n");
+  fprintf(stderr,"%s","    -adjustlevels: Adjust output scales and offsets every row (default is only row 0)\n");
+  fprintf(stderr,"%s","         -weights: Filename containing ASCII list of channels and weights to use\n");
+  fprintf(stderr,"%s","                   1 char* value\n");
+  fprintf(stderr,"%s","        -bandpass: Filename containing ASCII list of channels, avgs, stdevs to use\n");
+  fprintf(stderr,"%s","                   1 char* value\n");
+  fprintf(stderr,"%s","               -o: Basename for the output files\n");
+  fprintf(stderr,"%s","                   1 char* value\n");
+  fprintf(stderr,"%s","           infile: Input file name(s) of the PSRFITs datafiles\n");
+  fprintf(stderr,"%s","                   1...10000 values\n");
+  fprintf(stderr,"%s","  version: 05Nov19\n");
   fprintf(stderr,"%s","  ");
   exit(EXIT_FAILURE);
 }
@@ -858,6 +884,16 @@ parseCmdline(int argc, char **argv)
       continue;
     }
 
+    if( 0==strcmp("-outbits", argv[i]) ) {
+      int keep = i;
+      cmd.outbitsP = 1;
+      i = getIntOpt(argc, argv, i, &cmd.outbits, 1);
+      cmd.outbitsC = i-keep;
+      checkIntLower("-outbits", &cmd.outbits, cmd.outbitsC, 8);
+      checkIntHigher("-outbits", &cmd.outbits, cmd.outbitsC, 2);
+      continue;
+    }
+
     if( 0==strcmp("-filetime", argv[i]) ) {
       int keep = i;
       cmd.filetimeP = 1;
@@ -878,8 +914,23 @@ parseCmdline(int argc, char **argv)
       continue;
     }
 
-    if( 0==strcmp("-bytes", argv[i]) ) {
-      cmd.bytesP = 1;
+    if( 0==strcmp("-tgtstd", argv[i]) ) {
+      int keep = i;
+      cmd.tgtstdP = 1;
+      i = getFloatOpt(argc, argv, i, &cmd.tgtstd, 1);
+      cmd.tgtstdC = i-keep;
+      checkFloatLower("-tgtstd", &cmd.tgtstd, cmd.tgtstdC, 100000.0);
+      checkFloatHigher("-tgtstd", &cmd.tgtstd, cmd.tgtstdC, 0.0);
+      continue;
+    }
+
+    if( 0==strcmp("-tgtavg", argv[i]) ) {
+      int keep = i;
+      cmd.tgtavgP = 1;
+      i = getFloatOpt(argc, argv, i, &cmd.tgtavg, 1);
+      cmd.tgtavgC = i-keep;
+      checkFloatLower("-tgtavg", &cmd.tgtavg, cmd.tgtavgC, 100000.0);
+      checkFloatHigher("-tgtavg", &cmd.tgtavg, cmd.tgtavgC, 0.0);
       continue;
     }
 
@@ -888,11 +939,24 @@ parseCmdline(int argc, char **argv)
       continue;
     }
 
+    if( 0==strcmp("-adjustlevels", argv[i]) ) {
+      cmd.adjustlevelsP = 1;
+      continue;
+    }
+
     if( 0==strcmp("-weights", argv[i]) ) {
       int keep = i;
       cmd.wgtsfileP = 1;
       i = getStringOpt(argc, argv, i, &cmd.wgtsfile, 1);
       cmd.wgtsfileC = i-keep;
+      continue;
+    }
+
+    if( 0==strcmp("-bandpass", argv[i]) ) {
+      int keep = i;
+      cmd.bandpassfileP = 1;
+      i = getStringOpt(argc, argv, i, &cmd.bandpassfile, 1);
+      cmd.bandpassfileC = i-keep;
       continue;
     }
 
@@ -923,8 +987,8 @@ parseCmdline(int argc, char **argv)
             Program);
     exit(EXIT_FAILURE);
   }
-  if( 2000<cmd.argc ) {
-    fprintf(stderr, "%s: there should be at most 2000 non-option argument(s)\n",
+  if( 10000<cmd.argc ) {
+    fprintf(stderr, "%s: there should be at most 10000 non-option argument(s)\n",
             Program);
     exit(EXIT_FAILURE);
   }

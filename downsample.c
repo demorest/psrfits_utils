@@ -6,70 +6,262 @@
 //        separate input and output arrays and then a copy.
 //        Otherwise, the threads will step on each other.
 
-void convert_4bit_to_8bit(unsigned char *indata, unsigned char *outdata, int N)
-// This converts 4-bit indata to 8-bit outdata
-// N is the total number of data points
+
+void pack_8bit_to_2bit_unsigned(unsigned char *indata,
+                                unsigned char *outdata, int N)
+// packs (i.e. converts) 8-bit unsigned indata to 2-bit outdata
+// N is total number of data points
+{
+    int ii;
+    for (ii = 0; ii < N / 4; ii++, outdata++) {
+        *outdata = *indata++ << 6;
+        *outdata |= *indata++ << 4;
+        *outdata |= *indata++ << 2;
+        *outdata |= *indata++;
+    }
+}
+
+void pack_8bit_to_2bit_signed(char *indata,
+                              char *outdata, int N)
+// packs (i.e. converts) 8-bit signed indata to 2-bit outdata
+// N is total number of data points
+{
+    int ii;
+    for (ii = 0; ii < N / 4; ii++, outdata++) {
+        *outdata = (*indata++ & 0x03) << 6;
+        *outdata |= (*indata++ & 0x03) << 4;
+        *outdata |= (*indata++ & 0x03) << 2;
+        *outdata |= *indata++ & 0x03;
+    }
+}
+
+void pf_pack_8bit_to_2bit(struct psrfits *pf, int numunsigned)
+// packs (i.e. converts) 8-bit indata to 2-bit outdata in psrfits struct
+{
+    int ii, poln;
+    int nspec = pf->hdr.nsblk;
+    int npol = pf->hdr.npol;
+    int nchan = pf->hdr.nchan;
+    for (ii = 0 ; ii < nspec ; ii++) {
+        for (poln = 0 ; poln < npol ; poln++) {
+            if (poln < numunsigned) { // unsigned
+                unsigned char *indata = pf->sub.data +  \
+                    nchan * (ii * npol + poln);
+                unsigned char *outdata = pf->sub.rawdata + \
+                    nchan * (ii * npol + poln) / 4;
+                pack_8bit_to_2bit_unsigned(indata, outdata, nchan);
+            } else { // signed
+                char *indata = (char *) (pf->sub.data + \
+                                         nchan * (ii * npol + poln));
+                char *outdata = (char *) (pf->sub.rawdata + \
+                                          nchan * (ii * npol + poln) / 4);
+                pack_8bit_to_2bit_signed(indata, outdata, nchan);
+            }
+        }
+    }
+}
+
+void pack_8bit_to_4bit_unsigned(unsigned char *indata,
+                                unsigned char *outdata, int N)
+// packs (i.e. converts) 8-bit unsigned indata to 4-bit outdata
+// N is total number of data points
+{
+    int ii;
+    for (ii = 0 ; ii < N / 2 ; ii++, outdata++) {
+        *outdata = *indata++ << 4;
+        *outdata |= *indata++;
+    }
+}
+
+void pack_8bit_to_4bit_signed(char *indata,
+                              char *outdata, int N)
+// packs (i.e. converts) 8-bit signed indata to 4-bit outdata
+// N is total number of data points
+{
+    int ii;
+    for (ii = 0 ; ii < N / 2 ; ii++, outdata++) {
+        *outdata = (*indata++ & 0x0F) << 4;
+        *outdata |= *indata++ & 0x0F;
+    }
+}
+
+void pf_pack_8bit_to_4bit(struct psrfits *pf, int numunsigned)
+// packs (i.e. converts) 8-bit indata to 4-bit outdata in psrfits struct
+{
+    int ii, poln;
+    int nspec = pf->hdr.nsblk;
+    int npol = pf->hdr.npol;
+    int nchan = pf->hdr.nchan;
+    for (ii = 0 ; ii < nspec ; ii++) {
+        for (poln = 0 ; poln < npol ; poln++) {
+            if (poln < numunsigned) { // unsigned
+                unsigned char *indata = pf->sub.data + \
+                    nchan * (ii * npol + poln);
+                unsigned char *outdata = pf->sub.rawdata + \
+                    nchan * (ii * npol + poln) / 2;
+                pack_8bit_to_4bit_unsigned(indata, outdata, nchan);
+            } else { // signed
+                char *indata = (char *) (pf->sub.data + \
+                                         nchan * (ii * npol + poln));
+                char *outdata = (char *) (pf->sub.rawdata + \
+                                          nchan * (ii * npol + poln) / 2);
+                pack_8bit_to_4bit_signed(indata, outdata, nchan);
+            }
+        }
+    }
+}
+
+void unpack_2bit_to_8bit_unsigned(unsigned char *indata,
+                                  unsigned char *outdata, int N)
+// unpacks (i.e. converts) 2-bit unsigned indata to 8-bit outdata
+// N is total number of data points
 {
     int ii;
     unsigned char uctmp;
-
-    // Convert all the data from 4-bit to 8-bit
-    for (ii = 0 ; ii < N / 2 ; ii++, indata++) {
+    for (ii = 0 ; ii < N / 4 ; ii++, indata++) {
         uctmp = *indata;
-        *outdata++ = uctmp >> 4;   // 1st 4 bits (MSBs) are first nibble
-        *outdata++ = uctmp & 0x0F; // 2nd 4 bits (LSBs) are second nibble
+        *outdata++ = uctmp >> 6;
+        *outdata++ = (uctmp >> 4) & 0x03;
+        *outdata++ = (uctmp >> 2) & 0x03;
+        *outdata++ = uctmp & 0x03;
     }
 }
 
-
-void pf_4bit_to_8bit(struct psrfits *pf)
-// This converts 4-bit pf->sub.rawdata to 8-bit pf->sub.data
-{
-    convert_4bit_to_8bit((unsigned char *)pf->sub.rawdata,
-                         (unsigned char *)pf->sub.data,
-                         pf->sub.bytes_per_subint * 2);
-}
-
-
-void convert_8bit_to_4bit(unsigned char *indata, unsigned char *outdata, int N)
-// This converts 8-bit indata to 4-bit outdata
-// N is the total number of data points
+void unpack_2bit_to_8bit_signed(unsigned char *indata,
+                                unsigned char *outdata, int N)
+// unpacks (i.e. converts) 2-bit signed indata to 8-bit outdata
+// N is total number of data points
 {
     int ii;
-
-    // Convert all the data from 4-bit to 8-bit
-    for (ii = 0 ; ii < N / 2 ; ii++, outdata++) {
-        *outdata = *indata++ << 4;  // 1st 4 bits (MSBs) are first point
-        *outdata += *indata++;      // 2nd 4 bits (LSBs) are second point
+    // This provides automatic sign extension (via a bitfield)
+    // which is essential for twos complement signed numbers
+    // https://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+    struct {signed char x:2;} stmp;
+    for (ii = 0 ; ii < N / 4 ; ii++, indata++) {
+        stmp.x = *indata >> 6;
+        *outdata++ = stmp.x;
+        stmp.x = ((*indata >> 4) & 0x03);
+        *outdata++ = stmp.x;
+        stmp.x = ((*indata >> 2) & 0x03);
+        *outdata++ = stmp.x;
+        stmp.x = (*indata & 0x03);
+        *outdata++ = stmp.x;
     }
 }
 
-
-void pf_8bit_to_4bit(struct psrfits *pf)
-// This converts 8-bit pf->sub.data into 4-bit pf->sub.rawdata
+void pf_unpack_2bit_to_8bit(struct psrfits *pf, int numunsigned)
+// unpacks (i.e. converts) 2-bit indata to 8-bit outdata in psrfits struct
 {
-    long long numoutsamp = pf->sub.bytes_per_subint * 2 / \
-        (pf->hdr.ds_time_fact * pf->hdr.ds_freq_fact);
-    convert_8bit_to_4bit((unsigned char *)pf->sub.data,
-                         (unsigned char *)pf->sub.rawdata,
-                         numoutsamp);
+    int ii, poln;
+    int nspec = pf->hdr.nsblk;
+    int npol = pf->hdr.npol;
+    int nchan = pf->hdr.nchan;
+    for (ii = 0 ; ii < nspec ; ii++) {
+        for (poln = 0 ; poln < npol ; poln++) {
+            if (poln < numunsigned) { // unsigned
+                unsigned char *indata = pf->sub.rawdata + \
+                    ii * npol * nchan / 4 + poln * nchan / 4;
+                unsigned char *outdata = pf->sub.data + \
+                    ii * npol * nchan + poln * nchan;
+                unpack_2bit_to_8bit_unsigned(indata, outdata, nchan);
+            } else { // signed
+                char *indata = (char *) (pf->sub.rawdata + \
+                                         ii * npol * nchan / 4 + \
+                                         poln * nchan / 4);
+                char *outdata = (char *) (pf->sub.data + \
+                                          ii * npol * nchan + \
+                                          poln * nchan);
+                unpack_2bit_to_8bit_signed(indata, outdata, nchan);
+            }
+        }
+    }
+}
+
+void unpack_4bit_to_8bit_unsigned(unsigned char *indata,
+                                  unsigned char *outdata, int N)
+// unpacks (i.e. converts) 4-bit unsigned indata to 8-bit outdata
+// N is total number of data points
+{
+    int ii;
+    unsigned char uctmp;
+    for (ii = 0 ; ii < N / 2 ; ii++, indata++) {
+        uctmp = *indata;
+        *outdata++ = uctmp >> 4;
+        *outdata++ = uctmp & 0x0F;
+    }
+}
+
+void unpack_4bit_to_8bit_signed(unsigned char *indata,
+                                unsigned char *outdata, int N)
+// unpacks (i.e. converts) 4-bit signed indata to 8-bit outdata
+// N is total number of data points
+{
+    int ii;
+    // This provides automatic sign extension (via a bitfield)
+    // which is essential for twos complement signed numbers
+    // https://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+    struct {signed char x:4;} stmp;
+    for (ii = 0 ; ii < N / 2 ; ii++, indata++) {
+        stmp.x = *indata >> 4;
+        *outdata++ = stmp.x;
+        stmp.x = (*indata & 0x0F);
+        *outdata++ = stmp.x;
+    }
+}
+
+void pf_unpack_4bit_to_8bit(struct psrfits *pf, int numunsigned)
+// unpacks (i.e. converts) 4-bit indata to 8-bit outdata in psrfits struct
+{
+    int ii, poln;
+    int nspec = pf->hdr.nsblk;
+    int npol = pf->hdr.npol;
+    int nchan = pf->hdr.nchan;
+    for (ii = 0 ; ii < nspec ; ii++) {
+        for (poln = 0 ; poln < npol ; poln++) {
+            if (poln < numunsigned) { // unsigned
+                unsigned char *indata = pf->sub.rawdata + \
+                    ii * npol * nchan / 2 + poln * nchan / 2;
+                unsigned char *outdata = pf->sub.data + \
+                    ii * npol * nchan + poln * nchan;
+                unpack_4bit_to_8bit_unsigned(indata, outdata, nchan);
+            } else { // signed
+                char *indata = (char *) (pf->sub.rawdata + \
+                                         ii * npol * nchan / 2 + \
+                                         poln * nchan / 2);
+                char *outdata = (char *) (pf->sub.data + \
+                                          ii * npol * nchan + \
+                                          poln * nchan);
+                unpack_4bit_to_8bit_signed(indata, outdata, nchan);
+            }
+        }
+    }
 }
 
 
 void get_stokes_I(struct psrfits *pf)
 /* Move the Stokes I in place so that it is consecutive in the array */
 {
-    int ii;
+    int ii, skip = 0, reorder = 0;
     float *data;
     struct hdrinfo *hdr = &(pf->hdr);
     const int out_nchan = hdr->nchan / hdr->ds_freq_fact;
 
-    // In this mode, average the polns first to make it like IQUV
     if (strncmp(hdr->poln_order, "AABBCRCI", 8)==0) {
+        skip = 4;
+        reorder = 1;
+    } else if (strncmp(hdr->poln_order, "IQUV", 4)==0) {
+        skip = 4;
+    } else if (strncmp(hdr->poln_order, "AABB", 4)==0) {
+        skip = 2;
+        reorder = 1;
+    }
+
+    // In this mode, average the polns first to make it like IQUV
+    if (reorder) {
         float *bbptr;
         int jj;
         for (ii = 0 ; ii < hdr->nsblk ; ii++) {
-            data = pf->sub.fdata + ii * out_nchan * 4; // 4 polns
+            data = pf->sub.fdata + ii * out_nchan * skip; // skip polns
             bbptr = data + out_nchan;
             for (jj = 0 ; jj < out_nchan ; jj++, data++, bbptr++)
                 *data = 0.5 * (*data + *bbptr); // Average AA and BB polns
@@ -78,8 +270,8 @@ void get_stokes_I(struct psrfits *pf)
     data = pf->sub.fdata;
     // Start from 1 since we don't need to move the 1st spectra
     for (ii = 1 ; ii < hdr->nsblk ; ii++) {
-        memcpy(data + ii * out_nchan, 
-               data + ii * 4 * out_nchan, 
+        memcpy(data + ii * out_nchan,
+               data + ii * skip * out_nchan,
                out_nchan * sizeof(float));
     }
 }
@@ -107,7 +299,7 @@ void downsample_time(struct psrfits *pf)
     // Iterate over the output times
     for (ii = 0 ; ii < out_nsblk ; ii++) {
         // Initiaize the summation
-        for (jj = 0 ; jj < out_nchan ; jj++) 
+        for (jj = 0 ; jj < out_nchan ; jj++)
             tmpspec[jj] = 0.0;
         // Add up the samples in time in the tmp array
         for (jj = 0 ; jj < dsfact ; jj++) {
@@ -134,7 +326,7 @@ void guppi_update_ds_params(struct psrfits *pf)
     int out_npol = hdr->npol;
     if (hdr->onlyI) out_npol = 1;
     int out_nchan = hdr->nchan / hdr->ds_freq_fact;
- 
+
     if (hdr->ds_freq_fact > 1) {
         int ii;
         double dtmp;

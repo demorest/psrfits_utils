@@ -55,7 +55,8 @@ struct hdrinfo {
     int nchan;              // Number of channels
     int npol;               // Number of polarizations to be stored (1 for summed)
     int nsblk;              // Number of spectra per row
-    int orig_nchan;         // Number of spectral channels per sample
+    int orig_nchan;         // Original number of spectral channels per sample
+    int orig_nbits;         // Number of bits original data had
     int summed_polns;       // Are polarizations summed? (1=Yes, 0=No)
     int rcvr_polns;         // Number of polns provided by the receiver
     int offset_subint;      // Offset subint number for first row in the file

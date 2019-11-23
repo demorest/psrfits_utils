@@ -17,14 +17,21 @@ Int    -startfile startfile {Starting file number of sequence} \
     -r 1 2000 -d 1
 Int    -numfiles  numfiles  {Number of files to process} \
     -r 1 2000
+Int    -outbits  outbits  {Number of output bits desired} \
+    -r 2 8
 Float  -filetime filetime {Desired length of the resulting files in sec} \
     -r 0.0 100000.0
 Float  -filelen  filelen  {Desired length of the resulting files in GB} \
     -r 0.0 1000.0
-Flag   -bytes    bytes    {Make the raw data unsigned chars instead of signed shorts}
+Float -tgtstd tgtstd {Target stdev. If 0, set in code based on outbits} \
+    -r 0.0 100000.0 -d 0.0
+Float -tgtavg tgtavg {Target avg for UNSIGNED data. If 0, set in code based on outbits} \
+    -r 0.0 100000.0 -d 0.0
 Flag   -onlyI    onlyI    {Only output total intensity data}
+Flag   -adjustlevels adjustlevels {Adjust output scales and offsets every row (default is only row 0)}
 String -weights  wgtsfile {Filename containing ASCII list of channels and weights to use}
+String -bandpass bandpassfile {Filename containing ASCII list of channels, avgs, stdevs to use}
 String -o  outputbasename {Basename for the output files}
 # Rest of command line:
 Rest infile {Input file name(s) of the PSRFITs datafiles} \
-        -c 1 2000
+        -c 1 10000
