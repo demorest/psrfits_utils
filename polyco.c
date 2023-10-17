@@ -240,6 +240,9 @@ char telescope_name_to_code(const char *name) {
 
     if (strcasecmp(name, "VLA")==0) return('6');
 
+    if (strcasecmp(name, "Parkes")==0) return('7');
+    if (strcasecmp(name, "PKS")==0) return('7');
+
     /* Not found, return null */
     return('\0');
 }
